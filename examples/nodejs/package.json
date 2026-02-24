@@ -1,0 +1,12 @@
+{
+  "name": "pif-nodejs-example",
+  "version": "1.0.0",
+  "description": "Prompt Injection Firewall - Node.js integration example",
+  "main": "openai_example.js",
+  "scripts": {
+    "start": "node openai_example.js"
+  },
+  "dependencies": {
+    "openai": "^4.0.0"
+  }
+}

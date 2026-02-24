@@ -1,0 +1,35 @@
+# =============================================================================
+# PIF Docker Compose Example
+#
+# Runs PIF as a reverse proxy in front of the OpenAI API.
+#
+# Usage:
+#   docker compose up -d
+#   curl http://localhost:8080/healthz
+#
+# Then point your SDK at http://localhost:8080/v1
+# =============================================================================
+
+services:
+  pif:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../../rules:/etc/pif/rules:ro
+      - ../../config.yaml:/etc/pif/config.yaml:ro
+    environment:
+      - PIF_PROXY_TARGET=https://api.openai.com
+      - PIF_PROXY_LISTEN=:8080
+      - PIF_PROXY_ACTION=block
+      - PIF_DETECTOR_THRESHOLD=0.5
+      - PIF_LOGGING_LEVEL=info
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped

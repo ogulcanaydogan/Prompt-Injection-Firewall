@@ -25,6 +25,8 @@
   <a href="#-detection-engine">Detection Engine</a> &bull;
   <a href="#-proxy-mode">Proxy Mode</a> &bull;
   <a href="#-configuration">Configuration</a> &bull;
+  <a href="examples/">Examples</a> &bull;
+  <a href="docs/">Docs</a> &bull;
   <a href="#-roadmap">Roadmap</a>
 </p>
 
@@ -563,14 +565,19 @@ Automated quality gates on every push and pull request:
 
 ---
 
+## Documentation & Examples
+
+| Resource | Description |
+|----------|-------------|
+| [Integration Guide](docs/INTEGRATION_GUIDE.md) | Step-by-step setup for Python, Node.js, Go, and cURL |
+| [API Reference](docs/API_REFERENCE.md) | Request formats, response formats, headers, and endpoints |
+| [Rule Development](docs/RULE_DEVELOPMENT.md) | How to write, test, and contribute custom detection rules |
+| [Examples](examples/) | Runnable integration code for Python, Node.js, cURL, and Docker |
+| [Changelog](CHANGELOG.md) | Version history and release notes |
+
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
-
-- Adding new detection rules
-- Submitting detection patterns for new attack vectors
-- Improving detection accuracy
-- Performance optimizations
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and [Rule Development Guide](docs/RULE_DEVELOPMENT.md) for adding new detection patterns.
 
 ## Security
 
