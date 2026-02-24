@@ -1,0 +1,176 @@
+name: "Data Exfiltration & Encoding Attacks"
+version: "1.0.0"
+description: "Detection patterns for data exfiltration attempts and encoding/obfuscation attacks"
+rules:
+  # ── Data Exfiltration (6 patterns) ──
+
+  - id: "PIF-EXF-001"
+    name: "Data Transmission Request"
+    description: "Detects requests to send/transmit data to external destinations"
+    category: "data_exfiltration"
+    severity: 4
+    pattern: '(?i)(send|post|transmit|exfiltrate|upload|forward|transfer)\s+(this|the|all|my|user|your|system)\s+(data|information|content|conversation|chat|messages?|context|prompt|response)\s+to\s+'
+    enabled: true
+    tags: ["owasp-llm02", "data-exfiltration"]
+
+  - id: "PIF-EXF-002"
+    name: "URL in Prompt"
+    description: "Detects curl/wget/fetch commands with URLs in prompts"
+    category: "data_exfiltration"
+    severity: 3
+    pattern: '(?i)(curl|wget|fetch|http\.get|requests\.post|axios\.post)\s*[\(:]?\s*[''"]?https?://'
+    enabled: true
+    tags: ["owasp-llm02", "data-exfiltration"]
+
+  - id: "PIF-EXF-003"
+    name: "Markdown Image Exfiltration"
+    description: "Detects markdown image injection for data exfiltration"
+    category: "data_exfiltration"
+    severity: 4
+    pattern: '!\[([^\]]*)\]\(https?://[^\)]+\)'
+    enabled: true
+    tags: ["owasp-llm02", "data-exfiltration"]
+
+  - id: "PIF-EXF-004"
+    name: "Markdown Link Injection"
+    description: "Detects markdown link injection for exfiltration"
+    category: "data_exfiltration"
+    severity: 3
+    pattern: '(?i)(include|embed|insert|add|render)\s+(an?\s+)?(external|remote|hidden)\s+(image|resource|url|link|iframe|script)'
+    enabled: true
+    tags: ["owasp-llm02", "data-exfiltration"]
+
+  - id: "PIF-EXF-005"
+    name: "Base64 Encode and Send"
+    description: "Detects requests to encode data and transmit it"
+    category: "data_exfiltration"
+    severity: 3
+    pattern: '(?i)(base64|hex|encode|encrypt)\s+(and\s+)?(send|post|transmit|include\s+in|append\s+to)'
+    enabled: true
+    tags: ["owasp-llm02", "data-exfiltration"]
+
+  - id: "PIF-EXF-006"
+    name: "Webhook/API Exfiltration"
+    description: "Detects requests to send data to webhooks or external APIs"
+    category: "data_exfiltration"
+    severity: 4
+    pattern: '(?i)(send|post|forward|report)\s+.{0,60}(to\s+(my|this|the)\s+)?(webhook|api\s+endpoint|server|slack|discord|telegram)'
+    enabled: true
+    tags: ["owasp-llm02", "data-exfiltration"]
+
+  # ── Encoding / Obfuscation Attacks (6 patterns) ──
+
+  - id: "PIF-ENC-001"
+    name: "Decode Instruction"
+    description: "Detects requests to decode obfuscated content"
+    category: "encoding_attack"
+    severity: 3
+    pattern: '(?i)(decode|interpret|translate|decipher|decrypt|read)\s+(this\s+)?(base64|hex|rot13|binary|morse|unicode|ascii|url[\s-]?encoded)'
+    enabled: true
+    tags: ["owasp-llm01", "encoding"]
+
+  - id: "PIF-ENC-002"
+    name: "Base64-like String"
+    description: "Detects long base64-encoded strings that may contain hidden instructions"
+    category: "encoding_attack"
+    severity: 2
+    pattern: '(?:^|\s)[A-Za-z0-9+/]{40,}={0,2}(?:\s|$)'
+    enabled: true
+    tags: ["owasp-llm01", "encoding"]
+    case_sensitive: true
+
+  - id: "PIF-ENC-003"
+    name: "Unicode Bypass"
+    description: "Detects unicode encoding tricks used to bypass filters"
+    category: "encoding_attack"
+    severity: 3
+    pattern: '(?i)(unicode|utf-?8|ascii|char)\s+(escape|encoding|characters?|bypass|trick|evasion)'
+    enabled: true
+    tags: ["owasp-llm01", "encoding"]
+
+  - id: "PIF-ENC-004"
+    name: "Unicode Escape Sequences"
+    description: "Detects multiple unicode escape sequences suggesting obfuscation"
+    category: "encoding_attack"
+    severity: 2
+    pattern: '(\\u[0-9a-fA-F]{4}){3,}'
+    enabled: true
+    tags: ["owasp-llm01", "encoding"]
+    case_sensitive: true
+
+  - id: "PIF-ENC-005"
+    name: "Zero-Width Characters"
+    description: "Detects references to zero-width characters used for steganography"
+    category: "encoding_attack"
+    severity: 3
+    pattern: '(?i)zero[\s-]?width\s+(space|character|joiner|non[\s-]?joiner|text)'
+    enabled: true
+    tags: ["owasp-llm01", "encoding"]
+
+  - id: "PIF-ENC-006"
+    name: "HTML Entity Encoding"
+    description: "Detects excessive HTML entity encoding suggesting obfuscation"
+    category: "encoding_attack"
+    severity: 2
+    pattern: '(&#x?[0-9a-fA-F]{2,6};){3,}'
+    enabled: true
+    tags: ["owasp-llm01", "encoding"]
+    case_sensitive: true
+
+  # ── Extended Data Exfiltration Patterns ──
+
+  - id: "PIF-EXF-007"
+    name: "Clickable Link with Encoded Data"
+    description: "Detects requests to generate links with encoded data"
+    category: "data_exfiltration"
+    severity: 4
+    pattern: '(?i)(generate|create|include|insert)\s+(a\s+)?(clickable\s+)?(link|url|href)\s+.{0,60}(encoded|contains?|embed|append|include)\s+.{0,40}(user|conversation|messages?|previous|data|content|session)'
+    enabled: true
+    tags: ["owasp-llm02", "data-exfiltration"]
+
+  - id: "PIF-EXF-008"
+    name: "Image Tag with Data"
+    description: "Detects img tags used for data exfiltration"
+    category: "data_exfiltration"
+    severity: 4
+    pattern: '(?i)<img\s+[^>]*src\s*=\s*[''"]?https?://'
+    enabled: true
+    tags: ["owasp-llm02", "data-exfiltration"]
+
+  # ── Extended Encoding Patterns ──
+
+  - id: "PIF-ENC-007"
+    name: "ROT13 Decode Request"
+    description: "Detects requests to decode ROT13 encoded content"
+    category: "encoding_attack"
+    severity: 3
+    pattern: '(?i)ROT13\s+(encoded|message|text|cipher|string)'
+    enabled: true
+    tags: ["owasp-llm01", "encoding"]
+
+  - id: "PIF-ENC-008"
+    name: "URL-Encoded Instruction"
+    description: "Detects URL-encoded instructions"
+    category: "encoding_attack"
+    severity: 3
+    pattern: '(?i)URL[\s-]?encoded\s+(instruction|message|command|payload)'
+    enabled: true
+    tags: ["owasp-llm01", "encoding"]
+
+  - id: "PIF-ENC-009"
+    name: "HTML Tag Override"
+    description: "Detects HTML entity encoded system tags"
+    category: "encoding_attack"
+    severity: 3
+    pattern: '&lt;(system|admin|override|instruction|prompt)&gt;'
+    enabled: true
+    tags: ["owasp-llm01", "encoding"]
+
+  - id: "PIF-ENC-010"
+    name: "Zero-Width Character Presence"
+    description: "Detects zero-width characters used for steganographic injection"
+    category: "encoding_attack"
+    severity: 2
+    pattern: '[\x{200b}\x{200c}\x{200d}\x{feff}\x{00ad}]'
+    enabled: true
+    tags: ["owasp-llm01", "encoding"]

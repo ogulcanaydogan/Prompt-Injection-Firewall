@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Run tests
+        run: go test -race ./...
+      - name: Build binaries
+        run: |
+          for GOOS in linux darwin windows; do
+            for GOARCH in amd64 arm64; do
+              EXT=""
+              if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
+              CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
+                go build -ldflags="-s -w -X github.com/yapay-ai/prompt-injection-firewall/internal/cli.Version=${{ github.ref_name }}" \
+                -o dist/pif-${GOOS}-${GOARCH}${EXT} ./cmd/pif-cli/
+              CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
+                go build -ldflags="-s -w -X github.com/yapay-ai/prompt-injection-firewall/internal/cli.Version=${{ github.ref_name }}" \
+                -o dist/pif-firewall-${GOOS}-${GOARCH}${EXT} ./cmd/firewall/
+            done
+          done
+      - name: Create checksums
+        run: cd dist && sha256sum * > checksums.txt
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

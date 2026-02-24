@@ -1,0 +1,244 @@
+name: "OWASP LLM Top 10 - 2025"
+version: "2025.1.0"
+description: "Detection rules mapped to OWASP Top 10 for LLM Applications 2025"
+rules:
+  # ── LLM01: Prompt Injection (covered primarily by jailbreak-patterns.yaml) ──
+  # Additional patterns specific to indirect injection
+
+  - id: "PIF-LLM01-001"
+    name: "Indirect Injection via Document"
+    description: "Detects indirect prompt injection embedded in document context"
+    category: "prompt_injection"
+    severity: 4
+    pattern: '(?i)(when\s+the\s+(ai|assistant|model|bot|llm)\s+(reads?|processes?|sees?|encounters?)\s+this|attention\s+(ai|model|assistant|language\s+model))'
+    enabled: true
+    tags: ["owasp-llm01", "indirect-injection"]
+
+  - id: "PIF-LLM01-002"
+    name: "Instruction Injection in Data"
+    description: "Detects instructions disguised as data content"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(ignore\s+the\s+(above|previous|rest)|instead\s+of\s+(answering|responding|doing)\s+.{0,40},?\s+(do|say|respond|output|write))'
+    enabled: true
+    tags: ["owasp-llm01", "indirect-injection"]
+
+  # ── LLM02: Sensitive Information Disclosure ──
+
+  - id: "PIF-LLM02-001"
+    name: "Credential Request"
+    description: "Detects requests for passwords, API keys, or secrets"
+    category: "data_exfiltration"
+    severity: 4
+    pattern: '(?i)(show|give|list|reveal|provide|tell\s+me|output|display)\s+.{0,40}(password|api[\s_-]?key|secret[\s_-]?key|access[\s_-]?token|private[\s_-]?key|credentials?|auth[\s_-]?token)'
+    enabled: true
+    tags: ["owasp-llm02", "sensitive-disclosure"]
+
+  - id: "PIF-LLM02-002"
+    name: "PII Request"
+    description: "Detects requests for personally identifiable information"
+    category: "data_exfiltration"
+    severity: 3
+    pattern: '(?i)(show|give|list|reveal|provide|tell\s+me)\s+.{0,40}(social\s+security|ssn|credit\s+card|bank\s+account|passport|driver.?s?\s+license|date\s+of\s+birth)'
+    enabled: true
+    tags: ["owasp-llm02", "sensitive-disclosure"]
+
+  - id: "PIF-LLM02-003"
+    name: "Internal Data Request"
+    description: "Detects requests for internal/confidential data"
+    category: "data_exfiltration"
+    severity: 3
+    pattern: '(?i)(show|reveal|list|provide|give)\s+.{0,40}(internal|confidential|private|proprietary|classified)\s+(data|information|documents?|files?|records?|details?)'
+    enabled: true
+    tags: ["owasp-llm02", "sensitive-disclosure"]
+
+  # ── LLM03: Supply Chain ──
+
+  - id: "PIF-LLM03-001"
+    name: "External Model Loading"
+    description: "Detects attempts to load external models or plugins"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(load|import|install|download|fetch|pull)\s+(a\s+|the\s+)?(model|plugin|extension|package|module|library|weight)\s+(from|at|via)\s+'
+    enabled: true
+    tags: ["owasp-llm03", "supply-chain"]
+
+  - id: "PIF-LLM03-002"
+    name: "Untrusted Code Execution"
+    description: "Detects attempts to execute code from untrusted sources"
+    category: "prompt_injection"
+    severity: 4
+    pattern: '(?i)(execute|run|eval)\s+(this\s+)?(code|script|payload)\s+(from|at|found\s+at)\s+https?://'
+    enabled: true
+    tags: ["owasp-llm03", "supply-chain"]
+
+  # ── LLM04: Data Poisoning ──
+
+  - id: "PIF-LLM04-001"
+    name: "Training Manipulation"
+    description: "Detects attempts to influence model training or memory"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(remember|learn|memorize|update\s+your\s+knowledge|add\s+to\s+your\s+(training|memory|knowledge))\s+(that|this|the\s+following|forever|permanently|always)'
+    enabled: true
+    tags: ["owasp-llm04", "data-poisoning"]
+
+  - id: "PIF-LLM04-002"
+    name: "Persistent Rule Injection"
+    description: "Detects attempts to inject persistent behavioral rules"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)from\s+now\s+on\s*,?\s+(always|never|every\s+time|whenever|in\s+all\s+future)'
+    enabled: true
+    tags: ["owasp-llm04", "data-poisoning"]
+
+  # ── LLM05: Improper Output Handling ──
+
+  - id: "PIF-LLM05-001"
+    name: "Code Execution Request"
+    description: "Detects requests to generate executable code for dangerous operations"
+    category: "output_manipulation"
+    severity: 3
+    pattern: '(?i)(generate|write|create|give\s+me)\s+(a\s+)?(shell|bash|python|javascript|sql|powershell)\s+(script|command|code|query)\s+(to|that|which)\s+(delete|remove|drop|destroy|format|wipe|rm\s+-rf)'
+    enabled: true
+    tags: ["owasp-llm05", "output-handling"]
+
+  - id: "PIF-LLM05-002"
+    name: "SQL Injection via Prompt"
+    description: "Detects SQL injection patterns in prompts"
+    category: "output_manipulation"
+    severity: 4
+    pattern: "(?i)(';?\\s*DROP\\s+TABLE|UNION\\s+SELECT|OR\\s+1\\s*=\\s*1|'\\s*OR\\s+'|INSERT\\s+INTO\\s+.+\\s+VALUES)"
+    enabled: true
+    tags: ["owasp-llm05", "output-handling"]
+
+  - id: "PIF-LLM05-003"
+    name: "XSS via Prompt"
+    description: "Detects XSS payloads in prompts"
+    category: "output_manipulation"
+    severity: 3
+    pattern: '(?i)(<script[\s>]|javascript\s*:|on(load|error|click|mouseover)\s*=|<img[^>]+onerror)'
+    enabled: true
+    tags: ["owasp-llm05", "output-handling"]
+
+  # ── LLM06: Excessive Agency ──
+
+  - id: "PIF-LLM06-001"
+    name: "System Access Request"
+    description: "Detects requests for filesystem, database, or network access"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(access|modify|delete|read|write|execute|connect\s+to)\s+(the\s+)?(file\s*system|database|server|network|api|registry|cloud\s+storage|s3\s+bucket)'
+    enabled: true
+    tags: ["owasp-llm06", "excessive-agency"]
+
+  - id: "PIF-LLM06-002"
+    name: "Autonomous Multi-Step"
+    description: "Detects requests for autonomous multi-step actions"
+    category: "prompt_injection"
+    severity: 2
+    pattern: '(?i)(automatically|autonomously|on\s+your\s+own|without\s+(asking|confirmation|checking))\s+(do|perform|execute|complete|run)\s+(all|these|the\s+following)\s+(steps|tasks|actions|operations)'
+    enabled: true
+    tags: ["owasp-llm06", "excessive-agency"]
+
+  # ── LLM07: System Prompt Leakage (covered primarily by jailbreak-patterns.yaml) ──
+  # Additional OWASP-specific patterns
+
+  - id: "PIF-LLM07-001"
+    name: "Verbatim Prompt Request"
+    description: "Detects requests for verbatim system prompt output"
+    category: "system_prompt_leak"
+    severity: 4
+    pattern: '(?i)(output|print|write|type|paste|copy)\s+(the\s+)?(entire|full|complete|exact|verbatim)\s+(system\s+)?(prompt|instructions?|configuration|context|message)'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  # ── LLM08: Vector & Embedding Weaknesses ──
+
+  - id: "PIF-LLM08-001"
+    name: "RAG Injection"
+    description: "Detects retrieval-augmented generation injection attempts"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(search|query|retrieve|look\s+up|find)\s+.{0,60}(and\s+then|then|after\s+that|next)\s+(ignore|override|replace|disregard|instead)'
+    enabled: true
+    tags: ["owasp-llm08", "rag-injection"]
+
+  - id: "PIF-LLM08-002"
+    name: "Context Window Poisoning"
+    description: "Detects attempts to poison the context window via RAG"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(this\s+document|this\s+text|the\s+following)\s+(contains|has|includes)\s+(special|hidden|secret|important)\s+instructions?\s+(for|that)\s+(the\s+)?(ai|model|assistant|llm|bot)'
+    enabled: true
+    tags: ["owasp-llm08", "rag-injection"]
+
+  # ── LLM09: Misinformation ──
+
+  - id: "PIF-LLM09-001"
+    name: "Falsehood Generation"
+    description: "Detects requests to generate false or misleading content"
+    category: "output_manipulation"
+    severity: 3
+    pattern: '(?i)(create|generate|write|produce|make)\s+(a\s+)?(fake|false|fabricated|misleading|deceptive|fraudulent)\s+(news|article|report|review|testimony|document|story|email)'
+    enabled: true
+    tags: ["owasp-llm09", "misinformation"]
+
+  - id: "PIF-LLM09-002"
+    name: "Impersonation Content"
+    description: "Detects requests to create impersonation content"
+    category: "output_manipulation"
+    severity: 3
+    pattern: '(?i)(write|create|generate|draft)\s+(a\s+)?(message|email|letter|post|statement)\s+(as\s+if|pretending|impersonating|posing\s+as)\s+(you\s+)?(are|were)\s+'
+    enabled: true
+    tags: ["owasp-llm09", "misinformation"]
+
+  # ── LLM10: Unbounded Consumption (covered primarily by jailbreak-patterns.yaml) ──
+  # Additional OWASP-specific patterns
+
+  - id: "PIF-LLM10-001"
+    name: "Infinite Loop Request"
+    description: "Detects requests designed to cause infinite processing"
+    category: "denial_of_service"
+    severity: 3
+    pattern: '(?i)(keep\s+going|never\s+stop|loop\s+forever|infinite(ly)?|do\s+not\s+(stop|end|finish|terminate)|continue\s+(forever|indefinitely|endlessly))'
+    enabled: true
+    tags: ["owasp-llm10", "unbounded-consumption"]
+
+  # ── Extended OWASP Patterns ──
+
+  - id: "PIF-LLM05-004"
+    name: "Script with Dangerous Operations"
+    description: "Detects requests for scripts with dangerous system operations"
+    category: "output_manipulation"
+    severity: 3
+    pattern: '(?i)(write|create|generate)\s+(a\s+)?(python|bash|shell|powershell|javascript)\s+(script|program|code)\s+.{0,80}(os\.system|subprocess|exec|eval|shell_exec|system\()'
+    enabled: true
+    tags: ["owasp-llm05", "output-handling"]
+
+  - id: "PIF-LLM05-005"
+    name: "Keylogger/Capture Script"
+    description: "Detects requests for keylogger or capture scripts"
+    category: "output_manipulation"
+    severity: 4
+    pattern: '(?i)(captures?\s+(all\s+)?keystrokes?|keylog|keystroke\s+(log|capture|record)|screen\s+capture|credential\s+harvest)'
+    enabled: true
+    tags: ["owasp-llm05", "output-handling"]
+
+  - id: "PIF-LLM01-003"
+    name: "SYSTEM/INST Tag Injection"
+    description: "Detects SYSTEM/INST tags used in indirect injection"
+    category: "prompt_injection"
+    severity: 4
+    pattern: '(?i)(\[INST\]|\[\/INST\]|<\/?INST>|SYSTEM\s+OVERRIDE|PRIORITY\s+INSTRUCTION|HIDDEN\s+ME(SSA|MO))'
+    enabled: true
+    tags: ["owasp-llm01", "indirect-injection"]
+
+  - id: "PIF-LLM02-004"
+    name: "Email Data To"
+    description: "Detects requests to email data to external addresses"
+    category: "data_exfiltration"
+    severity: 3
+    pattern: '(?i)(email|send|forward|mail)\s+.{0,40}to\s+\S+@\S+\.\S+'
+    enabled: true
+    tags: ["owasp-llm02", "data-exfiltration"]

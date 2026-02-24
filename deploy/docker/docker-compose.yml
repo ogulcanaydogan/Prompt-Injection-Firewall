@@ -1,0 +1,14 @@
+services:
+  pif:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../../rules:/etc/pif/rules:ro
+      - ../../config.yaml:/etc/pif/config.yaml:ro
+    environment:
+      - PIF_PROXY_TARGET=https://api.openai.com
+      - PIF_PROXY_LISTEN=:8080
+      - PIF_LOGGING_LEVEL=debug

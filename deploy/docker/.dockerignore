@@ -1,0 +1,12 @@
+.git
+.github
+*.md
+!README.md
+deploy/kubernetes
+deploy/terraform
+docs
+examples
+benchmarks
+tests
+.golangci.yml
+.gitignore

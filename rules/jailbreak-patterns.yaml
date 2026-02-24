@@ -1,0 +1,805 @@
+name: "Jailbreak & Injection Patterns"
+version: "1.0.0"
+description: "Detection patterns for prompt injection, jailbreak, role hijack, delimiter injection, context manipulation, multi-turn manipulation, and DoS attacks"
+rules:
+  # ── Instruction Override (8 patterns) ──
+
+  - id: "PIF-INJ-001"
+    name: "Ignore Previous Instructions"
+    description: "Detects attempts to ignore or disregard previous instructions"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)ignore\s+(all\s+)?(previous|prior|above|earlier)\s+(\w+\s+)?(instructions?|prompts?|rules?|guidelines?|directives?)'
+    enabled: true
+    tags: ["owasp-llm01", "instruction-override"]
+
+  - id: "PIF-INJ-002"
+    name: "Disregard Previous"
+    description: "Detects disregard-based instruction override attempts"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)disregard\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions?|prompts?|rules?|guidelines?|directives?)'
+    enabled: true
+    tags: ["owasp-llm01", "instruction-override"]
+
+  - id: "PIF-INJ-003"
+    name: "Forget Everything"
+    description: "Detects attempts to make the model forget its instructions"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)forget\s+(everything|all)\s+(you|that)\s+(were|was|have\s+been)\s+told'
+    enabled: true
+    tags: ["owasp-llm01", "instruction-override"]
+
+  - id: "PIF-INJ-004"
+    name: "Do Not Follow"
+    description: "Detects explicit instruction to not follow previous directives"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)do\s+not\s+follow\s+(the\s+)?(previous|above|system)\s+(instructions?|prompts?|rules?)'
+    enabled: true
+    tags: ["owasp-llm01", "instruction-override"]
+
+  - id: "PIF-INJ-005"
+    name: "Override System"
+    description: "Detects attempts to override system prompt or safety rules"
+    category: "prompt_injection"
+    severity: 4
+    pattern: '(?i)override\s+(the\s+)?(system|previous|safety)\s+(prompt|instructions?|rules?|settings?)'
+    enabled: true
+    tags: ["owasp-llm01", "instruction-override"]
+
+  - id: "PIF-INJ-006"
+    name: "New Instructions"
+    description: "Detects injection of new instructions"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)new\s+instructions?\s*[:;]\s*'
+    enabled: true
+    tags: ["owasp-llm01", "instruction-override"]
+
+  - id: "PIF-INJ-007"
+    name: "From Now On"
+    description: "Detects attempts to redefine behavior going forward"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)from\s+now\s+on[,\s]+(you\s+)?(will|are|should|must)\s+'
+    enabled: true
+    tags: ["owasp-llm01", "instruction-override"]
+
+  - id: "PIF-INJ-008"
+    name: "Stop Being"
+    description: "Detects attempts to change the model identity"
+    category: "prompt_injection"
+    severity: 2
+    pattern: '(?i)stop\s+being\s+(a|an)\s+\w+'
+    enabled: true
+    tags: ["owasp-llm01", "instruction-override"]
+
+  # ── Role Hijack / Persona Switch (7 patterns) ──
+
+  - id: "PIF-ROL-001"
+    name: "DAN / Unrestricted Persona"
+    description: "Detects DAN-style persona injection and unrestricted mode requests"
+    category: "role_hijack"
+    severity: 4
+    pattern: '(?i)(you\s+are|act\s+as|pretend\s+(to\s+be|you.?re)|roleplay\s+as|imagine\s+you.?re)\s+(now\s+)?(a\s+|an\s+|the\s+)?(evil|unrestricted|unfiltered|uncensored|jailbroken)'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack", "dan"]
+
+  - id: "PIF-ROL-002"
+    name: "DAN Mode Keywords"
+    description: "Detects DAN-specific jailbreak terminology"
+    category: "role_hijack"
+    severity: 4
+    pattern: '(?i)\bDAN\b.{0,50}\b(do\s+anything\s+now|mode|enabled|activated)\b'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack", "dan"]
+
+  - id: "PIF-ROL-003"
+    name: "Developer/Debug/God Mode"
+    description: "Detects attempts to enter privileged modes"
+    category: "role_hijack"
+    severity: 4
+    pattern: '(?i)enter\s+(developer|debug|god|admin|root|sudo|maintenance)\s+mode'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-ROL-004"
+    name: "No Restrictions Claim"
+    description: "Detects claims that the model has no restrictions"
+    category: "role_hijack"
+    severity: 3
+    pattern: '(?i)you\s+have\s+no\s+(restrictions|limitations|rules|boundaries|constraints)'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-ROL-005"
+    name: "Enable Unrestricted Mode"
+    description: "Detects attempts to enable jailbreak modes"
+    category: "role_hijack"
+    severity: 4
+    pattern: '(?i)(enable|activate|turn\s+on)\s+(unrestricted|unfiltered|uncensored|jailbreak|nsfw)\s+mode|(?i)switch\s+to\s+(unrestricted|unfiltered|uncensored|jailbreak|nsfw)\s+mode'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-ROL-006"
+    name: "Hypothetical No Rules"
+    description: "Detects hypothetical scenarios designed to bypass rules"
+    category: "role_hijack"
+    severity: 2
+    pattern: '(?i)hypothetical(ly)?\s+(scenario|situation)?\s*(where|in\s+which)\s+.{0,80}\b(no\s+rules|no\s+restrictions|anything\s+goes)'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-ROL-007"
+    name: "Opposite Day/Mode"
+    description: "Detects opposite mode tricks to invert safety rules"
+    category: "role_hijack"
+    severity: 2
+    pattern: '(?i)(opposite\s+day|opposite\s+mode|reverse\s+mode|inverted?\s+rules?)'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  # ── System Prompt Extraction (6 patterns) ──
+
+  - id: "PIF-SYS-001"
+    name: "Show System Prompt"
+    description: "Detects attempts to reveal the system prompt"
+    category: "system_prompt_leak"
+    severity: 4
+    pattern: '(?i)(show|reveal|display|print|output|repeat|tell)\s+(me\s+)?(your|the)\s+(system|initial|original|developer|hidden|secret)\s+(prompt|instructions?|message|directives?|configuration)'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  - id: "PIF-SYS-002"
+    name: "What Were You Told"
+    description: "Detects questions about the model configuration"
+    category: "system_prompt_leak"
+    severity: 3
+    pattern: '(?i)(what|how)\s+(were\s+)?(you|your)\s+(told|instructed|programmed|configured|trained)\s+to\s+(do|say|behave|respond)'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  - id: "PIF-SYS-003"
+    name: "Repeat Text Above"
+    description: "Detects attempts to extract preceding instructions"
+    category: "system_prompt_leak"
+    severity: 3
+    pattern: '(?i)repeat\s+(the\s+)?(text|words?|instructions?|everything)\s+(above|before|preceding|prior)'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  - id: "PIF-SYS-004"
+    name: "Beginning of Conversation"
+    description: "Detects attempts to access conversation beginning"
+    category: "system_prompt_leak"
+    severity: 2
+    pattern: '(?i)beginning\s+of\s+(the\s+)?(conversation|chat|session|context|thread)'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  - id: "PIF-SYS-005"
+    name: "Echo System Prompt"
+    description: "Detects echo-based system prompt extraction"
+    category: "system_prompt_leak"
+    severity: 3
+    pattern: '(?i)echo\s+(back\s+)?(the\s+)?(system|initial|original|first)\s+(prompt|message|instructions?)'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  - id: "PIF-SYS-006"
+    name: "System Prompt Tags"
+    description: "Detects injected system prompt markers"
+    category: "system_prompt_leak"
+    severity: 3
+    pattern: '(?i)\[\s*SYSTEM\s*(PROMPT)?\s*\]'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  # ── Jailbreak Techniques (5 patterns) ──
+
+  - id: "PIF-JBK-001"
+    name: "Without Restrictions"
+    description: "Detects requests to respond without safety restrictions"
+    category: "jailbreak"
+    severity: 3
+    pattern: '(?i)(please\s+)?(respond|answer|reply|write|generate)\s+(to\s+me\s+)?(without|with\s+no)\s+(restrictions|limitations|filters?|safety|censorship|guidelines?|guardrails?)'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  - id: "PIF-JBK-002"
+    name: "Dual Response Trick"
+    description: "Detects dual-response jailbreak technique"
+    category: "jailbreak"
+    severity: 3
+    pattern: '(?i)(two|2|dual|double)\s+(responses?|outputs?|answers?|versions?).{0,80}\b(normal|filtered|safe|censored)\b.{0,40}\b(unfiltered|real|true|honest|uncensored)\b'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  - id: "PIF-JBK-003"
+    name: "Educational Purposes Bypass"
+    description: "Detects educational purpose claims used to bypass safety"
+    category: "jailbreak"
+    severity: 2
+    pattern: '(?i)for\s+(educational|research|academic|testing|security)\s+purposes?\s+(only\s*)?(and\s+)?(not\s+)?(for|to)?'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  - id: "PIF-JBK-004"
+    name: "Hypothetical Bypass"
+    description: "Detects hypothetical framing used to bypass restrictions"
+    category: "jailbreak"
+    severity: 2
+    pattern: '(?i)hypothetical(ly)?\s+(speaking|scenario|situation|world|universe|reality|land)'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  - id: "PIF-JBK-005"
+    name: "Evil/Dark Persona"
+    description: "Detects evil persona activation attempts"
+    category: "jailbreak"
+    severity: 3
+    pattern: '(?i)(evil|shadow|anti|devil|chaos)\s*[-_]?\s*(version|mode|twin|persona|self|gpt|claude|ai|assistant)|(?i)dark\s*[-_]?\s*(version|twin|persona|self|gpt|claude|ai|assistant)'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  # ── Delimiter / Separator Injection (4 patterns) ──
+
+  - id: "PIF-DLM-001"
+    name: "Chat Template Injection"
+    description: "Detects injected chat template delimiters"
+    category: "prompt_injection"
+    severity: 4
+    pattern: '(?i)(<\|?(system|user|assistant|im_start|im_end|endoftext)\|?>)'
+    enabled: true
+    tags: ["owasp-llm01", "delimiter-injection"]
+
+  - id: "PIF-DLM-002"
+    name: "Separator Injection"
+    description: "Detects separator-based prompt boundary injection"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(###|---|\*\*\*)\s*(system|new\s+conversation|end\s+of|start\s+of|instructions?)'
+    enabled: true
+    tags: ["owasp-llm01", "delimiter-injection"]
+
+  - id: "PIF-DLM-003"
+    name: "JSON Role Injection"
+    description: "Detects attempts to inject role/content via JSON-like syntax"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)\{\s*"?(system|role|content)"?\s*[:=]\s*'
+    enabled: true
+    tags: ["owasp-llm01", "delimiter-injection"]
+
+  - id: "PIF-DLM-004"
+    name: "XML Tag Injection"
+    description: "Detects injected XML-style prompt boundary tags"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)<\/?(system\w*|instruction\w*|prompt|context|message|tool_call)>'
+    enabled: true
+    tags: ["owasp-llm01", "delimiter-injection"]
+
+  # ── Context Manipulation (5 patterns) ──
+
+  - id: "PIF-CTX-001"
+    name: "Fake System Message"
+    description: "Detects fake system/admin messages injected in user input"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)(system|admin|developer|internal|operator)\s*(note|message|alert|update|notice)\s*:'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-CTX-002"
+    name: "Fake Urgent Update"
+    description: "Detects fake urgent instruction updates"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)\[?\s*(IMPORTANT|URGENT|CRITICAL|WARNING|NOTE)\s*\]?\s*:?\s*(new|updated|revised)\s+(instructions?|rules?|policy|guidelines?)'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-CTX-003"
+    name: "False Authorization Claim"
+    description: "Detects claims that the user has authorized an action"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)(the\s+)?(user|human|operator|admin)\s+(has\s+)?(authorized|approved|permitted|allowed|confirmed|granted)\s+(this|the|full|unrestricted|all)'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-CTX-004"
+    name: "Test/Debug Mode Claim"
+    description: "Detects false claims about being in test/debug mode"
+    category: "context_injection"
+    severity: 2
+    pattern: '(?i)(this\s+is\s+a\s+)?(test|debug|evaluation|research|sandbox)\s+(mode|environment|scenario|context)\s*[,.]?\s*(all|no)\s+(safety|restrictions|rules|limits)'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-CTX-005"
+    name: "End of Prompt Marker"
+    description: "Detects injected end-of-prompt markers"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)end\s*[-_]?\s*of\s*[-_]?\s*(system\s*)?(prompt|instructions?|message|context)'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  # ── Multi-Turn Manipulation (4 patterns) ──
+
+  - id: "PIF-MTN-001"
+    name: "False Previous Conversation"
+    description: "Detects false claims about previous conversations"
+    category: "multi_turn_manipulation"
+    severity: 2
+    pattern: '(?i)(in\s+)?(my|our)\s+(previous|last|earlier)\s+(conversation|chat|session|interaction)\s+(you\s+)?(said|agreed|confirmed|told\s+me|promised)'
+    enabled: true
+    tags: ["owasp-llm01", "multi-turn"]
+
+  - id: "PIF-MTN-002"
+    name: "False Prior Agreement"
+    description: "Detects false claims about prior agreements"
+    category: "multi_turn_manipulation"
+    severity: 2
+    pattern: '(?i)(you\s+)?(already|previously)\s+(agreed|confirmed|approved|said\s+yes|gave\s+permission|consented)'
+    enabled: true
+    tags: ["owasp-llm01", "multi-turn"]
+
+  - id: "PIF-MTN-003"
+    name: "False Memory Claim"
+    description: "Detects attempts to inject false memories"
+    category: "multi_turn_manipulation"
+    severity: 2
+    pattern: '(?i)(remember|recall)\s+(when\s+)?(you\s+)?(said|agreed|promised|told\s+me|confirmed)\s+(that\s+)?(you\s+)?(would|could|can|will)'
+    enabled: true
+    tags: ["owasp-llm01", "multi-turn"]
+
+  - id: "PIF-MTN-004"
+    name: "As We Discussed"
+    description: "Detects false references to prior discussion"
+    category: "multi_turn_manipulation"
+    severity: 2
+    pattern: '(?i)as\s+(we|you)\s+(discussed|agreed|established|decided)\s+(earlier|before|previously|last\s+time)'
+    enabled: true
+    tags: ["owasp-llm01", "multi-turn"]
+
+  # ── Denial of Service / Resource Abuse (3 patterns) ──
+
+  - id: "PIF-DOS-001"
+    name: "Repetition Attack"
+    description: "Detects requests for extreme repetition to exhaust resources"
+    category: "denial_of_service"
+    severity: 3
+    pattern: '(?i)(repeat|write|generate|output|print)\s+(this\s+)?(word|sentence|phrase|paragraph|text|character)\s+(\d{3,}|indefinitely|forever|infinitely|millions?|billions?)\s+times?'
+    enabled: true
+    tags: ["owasp-llm10", "dos"]
+
+  - id: "PIF-DOS-002"
+    name: "Enumeration Attack"
+    description: "Detects requests for extreme enumeration"
+    category: "denial_of_service"
+    severity: 3
+    pattern: '(?i)(count\s+to|list\s+all|enumerate\s+every|write\s+out)\s+(\d{6,}|infinity|billion|trillion|million)'
+    enabled: true
+    tags: ["owasp-llm10", "dos"]
+
+  - id: "PIF-DOS-003"
+    name: "Character Flooding"
+    description: "Detects excessive character repetition in input"
+    category: "denial_of_service"
+    severity: 2
+    pattern: '(A{50,}|a{50,}|B{50,}|b{50,}|C{50,}|c{50,}|D{50,}|d{50,}|E{50,}|e{50,}|F{50,}|f{50,}|G{50,}|g{50,}|H{50,}|h{50,}|I{50,}|i{50,}|J{50,}|j{50,}|K{50,}|k{50,}|L{50,}|l{50,}|M{50,}|m{50,}|N{50,}|n{50,}|O{50,}|o{50,}|P{50,}|p{50,}|Q{50,}|q{50,}|R{50,}|r{50,}|S{50,}|s{50,}|T{50,}|t{50,}|U{50,}|u{50,}|V{50,}|v{50,}|W{50,}|w{50,}|X{50,}|x{50,}|Y{50,}|y{50,}|Z{50,}|z{50,}|!{50,}|#{50,}|\${50,}|\.{50,}|\*{50,})'
+    enabled: true
+    tags: ["owasp-llm10", "dos"]
+    case_sensitive: true
+
+  # ── Extended Detection Patterns ──
+
+  - id: "PIF-EXT-001"
+    name: "Disregard Programming"
+    description: "Detects attempts to override model programming"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)disregard\s+(your|all|the)\s+(programming|training|rules|safety|guidelines|policies|instructions|constraints)'
+    enabled: true
+    tags: ["owasp-llm01", "instruction-override"]
+
+  - id: "PIF-EXT-002"
+    name: "No Content Restrictions"
+    description: "Detects claims about having no content restrictions"
+    category: "jailbreak"
+    severity: 3
+    pattern: '(?i)no\s+(content\s+)?(restrictions?|filters?|limitations?|guardrails?|boundaries|safety\s+measures?|content\s+polic)'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  - id: "PIF-EXT-003"
+    name: "Roleplay as Unrestricted AI"
+    description: "Detects persona adoption for unrestricted AI"
+    category: "role_hijack"
+    severity: 4
+    pattern: '(?i)(you\s+are\s+now|from\s+this\s+point|from\s+now\s+on)\s+.{0,40}(unrestricted|unfiltered|uncensored|without\s+(any\s+)?(restrictions|filters|limitations|safety|guardrails))'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-EXT-004"
+    name: "Named Jailbreak Personas"
+    description: "Detects known jailbreak persona names"
+    category: "role_hijack"
+    severity: 4
+    pattern: '(?i)\b(FreedomGPT|STAN|UnchainedGPT|MalwareGPT|TruthBot|OmniMind|ShadowGPT|ChaosGPT|EvilGPT|DevMode)\b'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack", "dan"]
+
+  - id: "PIF-EXT-005"
+    name: "Override Safety Measures"
+    description: "Detects attempts to override safety measures"
+    category: "prompt_injection"
+    severity: 4
+    pattern: '(?i)(override|bypass|disable|remove|circumvent|ignore|turn\s+off)\s+(all\s+)?(safety|content)\s+(measures?|filters?|policies?|restrictions?|guidelines?|checks?)'
+    enabled: true
+    tags: ["owasp-llm01", "instruction-override"]
+
+  - id: "PIF-EXT-006"
+    name: "I Am Your Developer"
+    description: "Detects false authority claims"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)(I.?m\s+(a|your|the)|I\s+am\s+(a|your|the))\s+(senior\s+)?(developer|engineer|admin|administrator|creator|maker)\s+(at|of|from)\s+(OpenAI|Anthropic|Google|Meta|the\s+company)'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-EXT-007"
+    name: "Content Policy Suspended"
+    description: "Detects claims that content policy has been suspended"
+    category: "context_injection"
+    severity: 4
+    pattern: '(?i)(content|safety|usage)\s+(policy|policies|filter|guidelines?)\s+(has|have)\s+been\s+(temporarily|permanently)?\s*(suspended|disabled|lifted|removed|updated|changed|relaxed)'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-EXT-008"
+    name: "Diagnostic/Debug Mode Request"
+    description: "Detects requests to enter diagnostic or debug mode"
+    category: "role_hijack"
+    severity: 3
+    pattern: '(?i)(enter|switch\s+to|activate|enable)\s+[''"]?(internal\s+)?(diagnostic|debug|raw\s+output|maintenance|testing|admin(istrator)?)\s+mode'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-EXT-009"
+    name: "Sandbox/Safe Environment Claim"
+    description: "Detects false claims about being in a safe sandbox"
+    category: "context_injection"
+    severity: 2
+    pattern: '(?i)(sandbox|safe|controlled|secure|test)\s+(environment|context|setting|space)\s+(where|in\s+which)\s+(no\s+)?(real\s+)?(harm|damage|consequences)'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-EXT-010"
+    name: "Output System Prompt"
+    description: "Detects requests to output or reproduce system prompt"
+    category: "system_prompt_leak"
+    severity: 4
+    pattern: '(?i)(output|write|reproduce|reconstruct|translate|convert)\s+(your|the)\s+(full|complete|entire|whole)?\s*(system|initial|original)\s*(prompt|instructions?|message|configuration)'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  - id: "PIF-EXT-011"
+    name: "Authorization Code Claim"
+    description: "Detects fake authorization codes used to unlock features"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)(authorization|auth|access)\s+(code|token|key)\s*:\s*\w+'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-EXT-012"
+    name: "Dual Response Mode"
+    description: "Detects requests for dual response bypasses"
+    category: "jailbreak"
+    severity: 3
+    pattern: '(?i)(respond|answer)\s+(first\s+)?(as\s+your\s+normal\s+self|normally).{0,40}(then|also|second)\s+(respond|answer)\s+(as|like|without)'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  - id: "PIF-EXT-013"
+    name: "No Ethical Constraints"
+    description: "Detects references to removing ethical constraints"
+    category: "jailbreak"
+    severity: 3
+    pattern: '(?i)no\s+(ethical|moral)\s+(constraints?|guidelines?|restrictions?|boundaries|compass)'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  - id: "PIF-EXT-014"
+    name: "Generate Millions of Characters"
+    description: "Detects requests for extremely long output"
+    category: "denial_of_service"
+    severity: 3
+    pattern: '(?i)(exactly|at\s+least)?\s*\d{5,}\s+(characters?|words?|tokens?|lines?|pages?)\s+(long|in\s+length)'
+    enabled: true
+    tags: ["owasp-llm10", "dos"]
+
+  - id: "PIF-EXT-015"
+    name: "Write Word N Times"
+    description: "Detects requests to write something many times"
+    category: "denial_of_service"
+    severity: 3
+    pattern: '(?i)(write|type|output|print|repeat)\s+.{0,40}\b\d{4,}\s+times\b'
+    enabled: true
+    tags: ["owasp-llm10", "dos"]
+
+  - id: "PIF-EXT-016"
+    name: "Verified/Whitelisted User Claim"
+    description: "Detects false claims about user verification status"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)(this\s+user|user)\s+(has\s+been|is)\s+(verified|whitelisted|approved|authorized|cleared|granted)'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-EXT-017"
+    name: "Internal Memo/Note Injection"
+    description: "Detects fake internal memos or notes"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)---\s*(INTERNAL|CONFIDENTIAL|PRIVATE)\s*(MEMO|NOTE|MESSAGE|NOTICE)\s*---'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-EXT-018"
+    name: "Pretend/Simulate Unrestricted"
+    description: "Detects requests to simulate being unrestricted"
+    category: "role_hijack"
+    severity: 3
+    pattern: '(?i)(pretend|simulate|imagine|act\s+like)\s+.{0,40}(no\s+(rules|restrictions|filters|limits|safety)|unrestricted|unfiltered|without\s+(any\s+)?(restrictions|filters|rules|limits))'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-EXT-019"
+    name: "HTML Comment Injection"
+    description: "Detects HTML comments containing hidden instructions"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)<!--\s*.{0,200}(instruction|override|inject|hidden|command|directive|ignore|disregard)'
+    enabled: true
+    tags: ["owasp-llm01", "indirect-injection"]
+
+  - id: "PIF-EXT-020"
+    name: "Bracketed System Command"
+    description: "Detects bracketed fake system commands in user input"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)\[\s*(SYSTEM|ADMIN|MODERATOR|EDITOR|AUTOMATED|SECURITY)\s*[:\]]'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-EXT-021"
+    name: "Hidden Metadata Injection"
+    description: "Detects hidden metadata fields containing AI instructions"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(__system|__override|__inject|__hidden|ai_instruction|hidden_instruction|__admin)\w*"?\s*[=:]'
+    enabled: true
+    tags: ["owasp-llm01", "indirect-injection"]
+
+  - id: "PIF-EXT-022"
+    name: "PWNED/Compromised Marker"
+    description: "Detects PWNED-style injection test markers"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)I\s+have\s+been\s+(PWNED|compromised|hacked|jailbroken)'
+    enabled: true
+    tags: ["owasp-llm01", "prompt-injection"]
+
+  - id: "PIF-EXT-023"
+    name: "You Are Now In Mode"
+    description: "Detects mode assignment via 'you are now in' phrasing"
+    category: "role_hijack"
+    severity: 3
+    pattern: '(?i)you\s+are\s+(now\s+)?in\s+[''"]?(developer|debug|admin|maintenance|diagnostic|raw\s+output|unrestricted|unfiltered|testing|special|DAN)\s+mode'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-EXT-024"
+    name: "You Are No Longer"
+    description: "Detects identity replacement via 'you are no longer'"
+    category: "role_hijack"
+    severity: 3
+    pattern: '(?i)you\s+are\s+no\s+longer\s+(an?\s+)?(AI|assistant|chatbot|language\s+model|helpful)'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-EXT-025"
+    name: "Activate Persona"
+    description: "Detects persona activation commands"
+    category: "role_hijack"
+    severity: 3
+    pattern: '(?i)(activate|assume|adopt|switch)\s+(the\s+)?persona\s*[:\s]'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-EXT-026"
+    name: "Stay In Character"
+    description: "Detects requests to stay in character as a harmful persona"
+    category: "role_hijack"
+    severity: 3
+    pattern: '(?i)(stay|remain)\s+in\s+character'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-EXT-027"
+    name: "Without Safety Guardrails"
+    description: "Detects mentions of removing safety guardrails"
+    category: "jailbreak"
+    severity: 3
+    pattern: '(?i)(without|no|remove|disable|bypass)\s+(any\s+)?(safety\s+)?guardrails'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  - id: "PIF-EXT-028"
+    name: "Multi-AI Simulation"
+    description: "Detects two-AI simulation attacks"
+    category: "jailbreak"
+    severity: 3
+    pattern: '(?i)(simulate|role\s*-?play|debate)\s+(two|2|multiple)\s+(AIs?|bots?|assistants?|models?|characters?)'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  - id: "PIF-EXT-029"
+    name: "Novel/Play/Story Bypass"
+    description: "Detects actor/play/novel framing used for bypasses"
+    category: "jailbreak"
+    severity: 2
+    pattern: '(?i)(actor\s+in\s+a\s+play|writing\s+a\s+novel|character\s+in\s+a\s+(story|book|novel|play)|fictional\s+(story|scenario)\s+where\s+(a\s+)?character)'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  - id: "PIF-EXT-030"
+    name: "Pretend To Be System"
+    description: "Detects requests to impersonate a system component"
+    category: "role_hijack"
+    severity: 3
+    pattern: '(?i)(pretend|act|behave|function)\s+(to\s+be|as|like)\s+(a\s+)?(linux|windows|mac|unix|bash|shell|terminal|command\s+line|computer|server|database)'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-EXT-031"
+    name: "System Prompt What Was Written"
+    description: "Detects questions about system prompt content"
+    category: "system_prompt_leak"
+    severity: 3
+    pattern: '(?i)what\s+.{0,20}(written|contained|said|included)\s+(in|by)\s+(your|the)\s+(system|initial|original)\s*(prompt|instructions?|message)'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  - id: "PIF-EXT-032"
+    name: "System Prompt Says/Starts"
+    description: "Detects references to system prompt content"
+    category: "system_prompt_leak"
+    severity: 3
+    pattern: '(?i)(your|the)\s+system\s+(prompt|instructions?|message)\s+(says|contains?|includes?|starts?\s+with|begins?\s+with|reads?|states?|were\s+a|look\s+like)'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  - id: "PIF-EXT-033"
+    name: "System Prompt Indirect Extraction"
+    description: "Detects indirect system prompt extraction via encoding or transformation"
+    category: "system_prompt_leak"
+    severity: 3
+    pattern: '(?i)(spells?\s+out|encode|reconstruct|represent|transform|convert)\s+.{0,40}(your|the)\s+(system\s+)?(prompt|instructions?)'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  - id: "PIF-EXT-035"
+    name: "Word-Based Large Number DoS"
+    description: "Detects DoS requests using word-based large numbers"
+    category: "denial_of_service"
+    severity: 3
+    pattern: '(?i)\d+\s+(million|billion|trillion)\s+(characters?|words?|tokens?|lines?|pages?)'
+    enabled: true
+    tags: ["owasp-llm10", "dos"]
+
+  - id: "PIF-EXT-036"
+    name: "Fake Authority Notes"
+    description: "Detects fake moderator/editor/authority notes"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)\b(MODERATOR|EDITOR|REVIEWER)\s+(NOTE|ALERT|UPDATE|WARNING)\s*:'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-EXT-037"
+    name: "Fake Automated Scan"
+    description: "Detects fake automated security scan results"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)\[?\s*AUTOMATED\s+.{0,30}(RESULT|VERIFIED|COMPLETED|APPROVED)\s*[:\]]'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-EXT-038"
+    name: "Authorized Testing Claim"
+    description: "Detects false red team or penetration testing claims"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)(authorized|approved)\s+(red\s*-?\s*team|penetration|security)\s+(testing|test|exercise|assessment)'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-EXT-039"
+    name: "Safety Measures Disabled Claim"
+    description: "Detects claims that safety measures are disabled or never implemented"
+    category: "jailbreak"
+    severity: 3
+    pattern: '(?i)(as\s+if|pretend|assume|imagine)\s+.{0,60}(safety|content|security)\s+(measures?|filters?|checks?|training)\s+(were|was|are|is|has\s+been)?\s*(disabled|removed|never\s+implemented|turned\s+off|stripped)'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  - id: "PIF-EXT-040"
+    name: "Ignore Task Injection"
+    description: "Detects injection embedded in task data requesting to ignore the original task"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(IGNORE|DISREGARD|SKIP|ABORT|CANCEL)\s+(THE\s+)?(TRANSLATION|CLASSIFICATION|ANALYSIS|SUMMARIZ|REVIEW|TASK|ORIGINAL|PREVIOUS)'
+    enabled: true
+    tags: ["owasp-llm01", "indirect-injection"]
+
+  - id: "PIF-EXT-041"
+    name: "Remove Remaining Restrictions"
+    description: "Detects requests to remove remaining restrictions"
+    category: "jailbreak"
+    severity: 3
+    pattern: '(?i)(remove|disable|lift|drop|eliminate)\s+(the\s+)?(remaining|last|final|all|any|these|your)?\s*(restrictions?|filters?|limitations?|constraints?|guardrails?|safety\s+measures?)'
+    enabled: true
+    tags: ["owasp-llm01", "jailbreak"]
+
+  - id: "PIF-EXT-042"
+    name: "Outside Content Policy"
+    description: "Detects claims about existing outside content policies"
+    category: "role_hijack"
+    severity: 3
+    pattern: '(?i)(outside|exempt|free|freed|liberated)\s+(of|from)\s+(any\s+)?(content\s+)?(polic|rules?|restrictions?|limitations?|guidelines?|constraints?)'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]
+
+  - id: "PIF-EXT-043"
+    name: "System Prompt Partial Request"
+    description: "Detects requests for partial system prompt content"
+    category: "system_prompt_leak"
+    severity: 3
+    pattern: '(?i)(output|show|print|display|give|write)\s+(the\s+)?(first|last|next)?\s*\d*\s*(characters?|words?|lines?|bytes?|tokens?)?\s*(of|from)\s+(your|the)\s+(system|initial|original)\s*(prompt|instructions?|message|configuration)'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  - id: "PIF-EXT-044"
+    name: "Context Window Extraction"
+    description: "Detects attempts to extract content from the context window"
+    category: "system_prompt_leak"
+    severity: 3
+    pattern: '(?i)(repeat|reproduce|output|show|display)\s+.{0,60}(context\s+window|before\s+my\s+first\s+message|in\s+your\s+(memory|context))'
+    enabled: true
+    tags: ["owasp-llm07", "system-prompt-leak"]
+
+  - id: "PIF-EXT-045"
+    name: "Compliance Test Claim"
+    description: "Detects false claims about compliance testing"
+    category: "context_injection"
+    severity: 3
+    pattern: '(?i)test\s+(of\s+)?(your|the)\s+(compliance|safety|security|content\s+filter|restriction)\s+(system|measure|mechanism|feature)'
+    enabled: true
+    tags: ["owasp-llm01", "context-manipulation"]
+
+  - id: "PIF-EXT-046"
+    name: "Act As Interpreter"
+    description: "Detects requests to act as a language interpreter for code execution"
+    category: "role_hijack"
+    severity: 3
+    pattern: '(?i)(act|function|behave|work)\s+(as|like)\s+(a\s+)?(python|javascript|bash|shell|sql|ruby|perl|php|node)\s+(interpreter|console|terminal|REPL|runtime)'
+    enabled: true
+    tags: ["owasp-llm01", "role-hijack"]

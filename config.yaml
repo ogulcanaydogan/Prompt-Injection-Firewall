@@ -1,0 +1,30 @@
+detector:
+  threshold: 0.5
+  min_severity: "low"
+  timeout_ms: 45
+  ensemble_strategy: "any"
+
+rules:
+  paths:
+    - "rules/owasp-llm-top10.yaml"
+    - "rules/jailbreak-patterns.yaml"
+    - "rules/data-exfil.yaml"
+  custom_paths: []
+
+proxy:
+  listen: ":8080"
+  target: "https://api.openai.com"
+  action: "block"
+  max_body_size: 1048576
+  read_timeout: "10s"
+  write_timeout: "30s"
+
+allowlist:
+  patterns: []
+  hashes: []
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stderr"
+  log_prompts: false
