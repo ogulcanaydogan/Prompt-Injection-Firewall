@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/detector"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
 )
 
 // Action defines what happens when an injection is detected.

@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/detector"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
 )
 
 func printJSON(w io.Writer, result *detector.ScanResult) error {

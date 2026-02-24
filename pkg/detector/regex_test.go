@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/rules"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/rules"
 )
 
 func loadTestDetector(t *testing.T) *RegexDetector {

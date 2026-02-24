@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/detector"
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/proxy"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/proxy"
 )
 
 var (

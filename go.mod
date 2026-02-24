@@ -1,4 +1,4 @@
-module github.com/yapay-ai/prompt-injection-firewall
+module github.com/ogulcanaydogan/Prompt-Injection-Firewall
 
 go 1.25.6
 

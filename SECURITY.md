@@ -11,7 +11,7 @@
 If you discover a security vulnerability in PIF, please report it responsibly:
 
 1. **Do not** open a public issue
-2. Email security findings to: security@yapay.ai
+2. Report via [GitHub Security Advisories](https://github.com/ogulcanaydogan/Prompt-Injection-Firewall/security/advisories/new)
 3. Include a detailed description and reproduction steps
 4. Allow up to 72 hours for an initial response
 

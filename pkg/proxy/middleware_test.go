@@ -14,8 +14,8 @@ import (
 
 	"log/slog"
 
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/detector"
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/rules"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/rules"
 )
 
 func loadTestDetector(t *testing.T) detector.Detector {

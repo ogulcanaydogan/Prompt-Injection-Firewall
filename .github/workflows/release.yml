@@ -29,10 +29,10 @@ jobs:
               EXT=""
               if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
               CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
-                go build -ldflags="-s -w -X github.com/yapay-ai/prompt-injection-firewall/internal/cli.Version=${{ github.ref_name }}" \
+                go build -ldflags="-s -w -X github.com/ogulcanaydogan/Prompt-Injection-Firewall/internal/cli.Version=${{ github.ref_name }}" \
                 -o dist/pif-${GOOS}-${GOARCH}${EXT} ./cmd/pif-cli/
               CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
-                go build -ldflags="-s -w -X github.com/yapay-ai/prompt-injection-firewall/internal/cli.Version=${{ github.ref_name }}" \
+                go build -ldflags="-s -w -X github.com/ogulcanaydogan/Prompt-Injection-Firewall/internal/cli.Version=${{ github.ref_name }}" \
                 -o dist/pif-firewall-${GOOS}-${GOARCH}${EXT} ./cmd/firewall/
             done
           done

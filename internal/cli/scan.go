@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/detector"
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/rules"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/rules"
 )
 
 var (

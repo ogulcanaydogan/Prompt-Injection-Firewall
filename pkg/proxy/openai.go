@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/detector"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
 )
 
 // ChatCompletionRequest represents an OpenAI chat completion request (subset).

@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/detector"
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/rules"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/rules"
 )
 
 func loadBenchDetector(b *testing.B) *detector.RegexDetector {

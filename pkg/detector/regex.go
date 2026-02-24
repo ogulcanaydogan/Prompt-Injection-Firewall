@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yapay-ai/prompt-injection-firewall/pkg/rules"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/rules"
 )
 
 type compiledRule struct {
