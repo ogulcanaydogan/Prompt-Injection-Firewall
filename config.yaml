@@ -1,8 +1,13 @@
 detector:
   threshold: 0.5
   min_severity: "low"
-  timeout_ms: 45
-  ensemble_strategy: "any"
+  timeout_ms: 100
+  ensemble_strategy: "weighted"
+  ml_model_path: ""          # Path to ONNX model dir or HuggingFace model ID (empty = disabled)
+  ml_threshold: 0.85         # Minimum ML confidence to flag as injection
+  weights:
+    regex: 0.6               # Ensemble weight for regex detector
+    ml: 0.4                  # Ensemble weight for ML detector
 
 rules:
   paths:

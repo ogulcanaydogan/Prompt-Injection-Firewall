@@ -62,6 +62,40 @@ func (e *EnsembleDetector) RuleCount() int {
 	return total
 }
 
+// HasMLDetector returns true if the ensemble contains an ML-based detector.
+func (e *EnsembleDetector) HasMLDetector() bool {
+	for _, wd := range e.detectors {
+		if wd.detector.ID() == "ml" {
+			return true
+		}
+	}
+	return false
+}
+
+// DetectorCount returns the number of registered detectors.
+func (e *EnsembleDetector) DetectorCount() int {
+	return len(e.detectors)
+}
+
+// Strategy returns the current ensemble strategy.
+func (e *EnsembleDetector) Strategy() EnsembleStrategy {
+	return e.strategy
+}
+
+// ParseStrategy converts a string strategy name to an EnsembleStrategy.
+func ParseStrategy(s string) EnsembleStrategy {
+	switch s {
+	case "any":
+		return StrategyAnyMatch
+	case "majority":
+		return StrategyMajority
+	case "weighted":
+		return StrategyWeighted
+	default:
+		return StrategyAnyMatch
+	}
+}
+
 // Scan runs all registered detectors concurrently and merges results.
 func (e *EnsembleDetector) Scan(ctx context.Context, input ScanInput) (*ScanResult, error) {
 	start := time.Now()

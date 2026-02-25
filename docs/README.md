@@ -9,6 +9,7 @@ Detailed guides for integrating, deploying, and extending the Prompt Injection F
 | [Integration Guide](INTEGRATION_GUIDE.md) | Step-by-step setup for Python, Node.js, Go, and cURL |
 | [API Reference](API_REFERENCE.md) | Request formats, response formats, headers, and endpoints |
 | [Rule Development](RULE_DEVELOPMENT.md) | How to write, test, and contribute custom detection rules |
+| [ML Training Pipeline](../ml/README.md) | Fine-tune DistilBERT, export to ONNX, and evaluate models |
 
 ## Quick Links
 

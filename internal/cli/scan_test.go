@@ -30,6 +30,7 @@ func TestNewScanCmd_Flags(t *testing.T) {
 		"quiet":     "q",
 		"verbose":   "v",
 		"rules":     "r",
+		"model":     "m",
 		"stdin":     "",
 		"threshold": "",
 		"severity":  "",
@@ -171,6 +172,32 @@ func TestBuildDetector_WithRulesDir(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, d)
 	assert.True(t, d.Ready())
+}
+
+func TestBuildDetector_WithInvalidModelFallsBack(t *testing.T) {
+	rulesDir := findRulesDir(t)
+
+	scanRules = []string{
+		filepath.Join(rulesDir, "owasp-llm-top10.yaml"),
+		filepath.Join(rulesDir, "jailbreak-patterns.yaml"),
+		filepath.Join(rulesDir, "data-exfil.yaml"),
+	}
+	scanModel = "/nonexistent/model"
+	defer func() {
+		scanRules = nil
+		scanModel = ""
+	}()
+
+	// Should succeed — falls back to regex-only
+	d, err := buildDetector()
+	require.NoError(t, err)
+	assert.NotNil(t, d)
+	assert.True(t, d.Ready())
+
+	// Should not have ML detector in stub build
+	ensemble := d.(*detector.EnsembleDetector)
+	assert.False(t, ensemble.HasMLDetector())
+	assert.Equal(t, 1, ensemble.DetectorCount())
 }
 
 // --- Integration tests using the scan command ---

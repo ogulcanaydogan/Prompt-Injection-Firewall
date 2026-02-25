@@ -17,10 +17,19 @@ type Config struct {
 }
 
 type DetectorConfig struct {
-	Threshold   float64 `mapstructure:"threshold"`
-	MinSeverity string  `mapstructure:"min_severity"`
-	TimeoutMs   int     `mapstructure:"timeout_ms"`
-	Strategy    string  `mapstructure:"ensemble_strategy"`
+	Threshold   float64       `mapstructure:"threshold"`
+	MinSeverity string        `mapstructure:"min_severity"`
+	TimeoutMs   int           `mapstructure:"timeout_ms"`
+	Strategy    string        `mapstructure:"ensemble_strategy"`
+	MLModelPath string        `mapstructure:"ml_model_path"`
+	MLThreshold float64       `mapstructure:"ml_threshold"`
+	Weights     WeightsConfig `mapstructure:"weights"`
+}
+
+// WeightsConfig defines ensemble weights for each detector type.
+type WeightsConfig struct {
+	Regex float64 `mapstructure:"regex"`
+	ML    float64 `mapstructure:"ml"`
 }
 
 type RulesConfig struct {
@@ -55,8 +64,14 @@ func Default() *Config {
 		Detector: DetectorConfig{
 			Threshold:   0.5,
 			MinSeverity: "low",
-			TimeoutMs:   45,
-			Strategy:    "any",
+			TimeoutMs:   100,
+			Strategy:    "weighted",
+			MLModelPath: "",
+			MLThreshold: 0.85,
+			Weights: WeightsConfig{
+				Regex: 0.6,
+				ML:    0.4,
+			},
 		},
 		Rules: RulesConfig{
 			Paths: []string{
@@ -93,6 +108,10 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("detector.min_severity", defaults.Detector.MinSeverity)
 	v.SetDefault("detector.timeout_ms", defaults.Detector.TimeoutMs)
 	v.SetDefault("detector.ensemble_strategy", defaults.Detector.Strategy)
+	v.SetDefault("detector.ml_model_path", defaults.Detector.MLModelPath)
+	v.SetDefault("detector.ml_threshold", defaults.Detector.MLThreshold)
+	v.SetDefault("detector.weights.regex", defaults.Detector.Weights.Regex)
+	v.SetDefault("detector.weights.ml", defaults.Detector.Weights.ML)
 	v.SetDefault("rules.paths", defaults.Rules.Paths)
 	v.SetDefault("proxy.listen", defaults.Proxy.Listen)
 	v.SetDefault("proxy.target", defaults.Proxy.Target)

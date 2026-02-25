@@ -5,6 +5,45 @@ All notable changes to the Prompt Injection Firewall will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-24
+
+### Added
+
+- **ML-Powered Semantic Detection**
+  - Fine-tuned DistilBERT classifier for prompt injection detection
+  - ONNX export with INT8 dynamic quantization (~65MB model)
+  - Go MLDetector implementation using `knights-analytics/hugot` ONNX Runtime
+  - Build tag system (`-tags ml`) keeps default builds unchanged (no CGO)
+  - Automatic fallback to regex-only when ML is unavailable
+
+- **Hybrid Ensemble Engine**
+  - Weighted scoring: regex (0.6) + ML (0.4) for balanced detection
+  - ML confidence mapped to PIF severity levels (≥0.95 critical, ≥0.90 high, ≥0.85 medium, ≥0.75 low)
+  - `HasMLDetector()` method for runtime ML status checking
+  - `ParseStrategy()` helper for string-to-strategy conversion
+
+- **Python Training Pipeline** (`ml/`)
+  - `train.py` — fine-tune DistilBERT on `deepset/prompt-injections` dataset
+  - `export_onnx.py` — ONNX export + INT8 quantization via Optimum
+  - `evaluate.py` — standalone evaluation with per-category breakdown
+  - Training documentation with HuggingFace Hub upload instructions
+
+- **CLI Enhancements**
+  - `--model` / `-m` flag for scan and proxy commands
+  - ML status display in proxy startup output
+  - Detector count and strategy display
+
+- **Build & Deployment**
+  - `deploy/docker/Dockerfile.ml` — ML-enabled Docker image with ONNX Runtime
+  - CI `test-ml` job for ONNX Runtime tests (conditional)
+  - `.gitignore` updated for ONNX models and Python artifacts
+
+### Changed
+
+- Default ensemble strategy changed from `any` to `weighted`
+- Default detection timeout increased from 45ms to 100ms (accommodates ML inference)
+- Configuration expanded with `ml_model_path`, `ml_threshold`, and `weights` fields
+
 ## [1.0.0] - 2025-02-24
 
 ### Added
@@ -60,4 +99,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Rule development guide
   - Integration examples for Python, Node.js, cURL, and Docker
 
+[1.1.0]: https://github.com/ogulcanaydogan/Prompt-Injection-Firewall/releases/tag/v1.1.0
 [1.0.0]: https://github.com/ogulcanaydogan/Prompt-Injection-Firewall/releases/tag/v1.0.0

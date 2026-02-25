@@ -44,19 +44,21 @@ PIF addresses this critical gap by providing a **transparent, low-latency detect
 
 | Problem | PIF Solution |
 |---------|-------------|
-| LLMs blindly execute injected instructions | **129 regex patterns** detect injection before it reaches the model |
+| LLMs blindly execute injected instructions | **129 regex patterns + ML classifier** detect injection before it reaches the model |
+| Novel attacks bypass static rules | **DistilBERT ONNX model** catches semantic injection that regex misses |
 | No standard security layer for LLM APIs | **Transparent reverse proxy** drops into any stack with zero code changes |
 | Fragmented attack coverage | **Full OWASP LLM Top 10 mapping** across 10 attack categories |
-| One-size-fits-all detection | **Ensemble engine** with configurable strategies (any-match, majority, weighted) |
-| Slow security scanning | **<50ms detection latency** with pre-compiled patterns and concurrent execution |
+| One-size-fits-all detection | **Hybrid ensemble engine** with configurable strategies and weights |
+| Slow security scanning | **<50ms regex + <100ms ML latency** with concurrent execution |
 
 ### Project Highlights
 
 ```
 129  Detection Patterns        10  Attack Categories
- 3   Rule Sets (YAML)           3  Ensemble Strategies
+ 2   Detection Engines           3  Ensemble Strategies
+     (Regex + ML/ONNX)
  2   LLM API Formats            3  Response Actions (Block / Flag / Log)
-<50ms Detection Latency       80%+ Test Coverage
+<100ms Detection Latency      83%+ Test Coverage
 ```
 
 ---
@@ -69,11 +71,11 @@ PIF addresses this critical gap by providing a **transparent, low-latency detect
 
 ### Detection & Analysis
 - **129 curated regex patterns** across 10 attack categories
-- **Ensemble detection engine** with 3 aggregation strategies
-- **Per-message scanning** with role-aware context
+- **ML-powered semantic detection** via fine-tuned DistilBERT (ONNX)
+- **Hybrid ensemble engine** with configurable regex/ML weights
+- **3 aggregation strategies** (any-match, majority, weighted)
 - **Configurable severity levels** (info / low / medium / high / critical)
 - **SHA-256 input hashing** for audit trails and deduplication
-- **Threat scoring** with adjustable thresholds
 
 </td>
 <td width="50%">
@@ -96,7 +98,7 @@ PIF addresses this critical gap by providing a **transparent, low-latency detect
 - **Distroless container** image (minimal attack surface)
 - **Non-root execution** in Docker
 - **Request body size limits** (1MB default)
-- **Timeout enforcement** (45ms detection, 10s read, 30s write)
+- **Timeout enforcement** (100ms detection, 10s read, 30s write)
 
 </td>
 <td width="50%">
@@ -139,10 +141,10 @@ PIF is built as a modular, layered system following clean architecture principle
  │                     │  └──────┬───────┘ │  │           Weighted              │   │
  │                     │         │         │  │                                 │   │
  │                     │  ┌──────▼───────┐ │  │  ┌───────────┐ ┌────────────┐  │   │
- │                     │  │ Message      │─┼──▶  │  Regex    │ │ ML-Based   │  │   │
+ │                     │  │ Message      │─┼──▶  │  Regex    │ │ ML/ONNX    │  │   │
  │                     │  │ Extraction   │ │  │  │  Detector │ │ Detector   │  │   │
- │                     │  └──────────────┘ │  │  │  (129     │ │ (Phase 2)  │  │   │
- │                     │                   │  │  │  patterns)│ │            │  │   │
+ │                     │  └──────────────┘ │  │  │  (129     │ │ DistilBERT │  │   │
+ │                     │                   │  │  │  patterns)│ │ (INT8)     │  │   │
  │                     │  ┌──────────────┐ │  │  └───────────┘ └────────────┘  │   │
  │                     │  │ Action       │ │  │                                 │   │
  │                     │  │ Enforcement  │ │  │  ┌─────────────────────────┐    │   │
@@ -167,7 +169,7 @@ prompt-injection-firewall/
 ├── internal/
 │   └── cli/              # CLI commands (scan, proxy, rules, version)
 ├── pkg/
-│   ├── detector/         # Detection engine (regex, ensemble, types)
+│   ├── detector/         # Detection engine (regex, ML/ONNX, ensemble, types)
 │   ├── proxy/            # HTTP reverse proxy, middleware, API adapters
 │   ├── rules/            # YAML rule loader and validation
 │   └── config/           # Configuration management (Viper)
@@ -175,8 +177,9 @@ prompt-injection-firewall/
 │   ├── owasp-llm-top10.yaml      # 24 OWASP-mapped rules
 │   ├── jailbreak-patterns.yaml   # 87 jailbreak & injection rules
 │   └── data-exfil.yaml           # 18 data exfiltration rules
+├── ml/                   # Python training pipeline (DistilBERT → ONNX)
 ├── benchmarks/           # Performance & accuracy benchmarks
-├── deploy/docker/        # Dockerfile & docker-compose.yml
+├── deploy/docker/        # Dockerfiles (standard + ML-enabled)
 └── .github/workflows/    # CI/CD pipelines
 ```
 
@@ -306,6 +309,58 @@ Rules are defined in human-readable YAML, making them easy to review, extend, an
 
 ---
 
+## ML Detection (Phase 2)
+
+PIF v1.1 introduces a **fine-tuned DistilBERT classifier** for semantic prompt injection detection. While regex patterns catch known attack signatures, the ML detector identifies **novel and rephrased attacks** that don't match any static pattern.
+
+### How It Works
+
+```
+Input Prompt
+    │
+    ├──▶ Regex Detector (129 patterns)  ──▶ weight: 0.6
+    │                                           │
+    ├──▶ ML Detector (DistilBERT ONNX)  ──▶ weight: 0.4
+    │                                           │
+    └──────────────────────────────────────── Weighted Ensemble ──▶ Final Score
+```
+
+### Building with ML Support
+
+ML detection requires ONNX Runtime and CGO. Default builds remain unchanged (regex-only):
+
+```bash
+# Default build (regex-only, no CGO required)
+go build ./cmd/pif-cli/
+
+# ML-enabled build (requires ONNX Runtime + CGO)
+CGO_ENABLED=1 go build -tags ml ./cmd/pif-cli/
+
+# ML-enabled Docker image
+docker build -f deploy/docker/Dockerfile.ml -t pif:ml .
+```
+
+### Using ML Detection
+
+```bash
+# Scan with ML model (local path)
+pif scan --model ./ml/output/onnx/quantized "test prompt"
+
+# Scan with ML model (HuggingFace model ID)
+pif scan --model ogulcanaydogan/pif-distilbert-injection-classifier "test prompt"
+
+# Proxy with ML detection
+pif proxy --model ./ml/output/onnx/quantized --target https://api.openai.com
+```
+
+If built without the `ml` tag, `--model` prints a warning and falls back to regex-only detection.
+
+### Training Your Own Model
+
+See the [ML Training Pipeline](ml/README.md) for instructions on fine-tuning and exporting models.
+
+---
+
 ## CLI Usage
 
 ### Scanning Prompts
@@ -408,8 +463,13 @@ PIF is configured via `config.yaml` with full environment variable override supp
 detector:
   threshold: 0.5              # Threat score threshold (0.0 - 1.0)
   min_severity: "low"         # Minimum severity: info | low | medium | high | critical
-  timeout_ms: 45              # Detection timeout in milliseconds
-  ensemble_strategy: "any"    # Strategy: any | majority | weighted
+  timeout_ms: 100             # Detection timeout in milliseconds
+  ensemble_strategy: "weighted" # Strategy: any | majority | weighted
+  ml_model_path: ""           # Path to ONNX model or HuggingFace ID (empty = disabled)
+  ml_threshold: 0.85          # ML confidence threshold
+  weights:
+    regex: 0.6                # Weight for regex detector in ensemble
+    ml: 0.4                   # Weight for ML detector in ensemble
 
 # Proxy settings
 proxy:
@@ -525,11 +585,18 @@ Automated quality gates on every push and pull request:
  │ golangci │    │ race +   │    │ perf +     │    │ Build          │
  │ -lint    │    │ coverage │    │ accuracy   │    │ linux/darwin/  │
  │          │    │ >= 80%   │    │            │    │ windows        │
- └──────────┘    └──────────┘    └────────────┘    └────────────────┘
+ └──────────┘    └──────┬───┘    └────────────┘    └────────────────┘
+                        │
+                 ┌──────▼───┐
+                 │ Test ML  │
+                 │ ONNX +   │
+                 │ CGO      │
+                 └──────────┘
 ```
 
 - **Linting:** golangci-lint with strict rules
 - **Testing:** Race condition detection + 80% minimum coverage
+- **ML Testing:** ONNX Runtime + CGO with model download (conditional)
 - **Benchmarks:** Performance regression tracking
 - **Build:** Cross-compilation for 6 platform targets
 
@@ -537,7 +604,7 @@ Automated quality gates on every push and pull request:
 
 ## Roadmap
 
-### Phase 1 -- Rule-Based Detection (Current)
+### Phase 1 -- Rule-Based Detection
 
 - [x] 129 regex-based detection patterns
 - [x] OWASP LLM Top 10 mapping
@@ -547,10 +614,14 @@ Automated quality gates on every push and pull request:
 - [x] Docker deployment with distroless image
 - [x] CI/CD pipeline with quality gates
 
-### Phase 2 -- ML-Powered Detection
+### Phase 2 -- ML-Powered Detection (Current)
 
-- [ ] Fine-tuned DistilBERT classifier for semantic injection detection
-- [ ] Hybrid scoring (regex + ML confidence blending)
+- [x] Fine-tuned DistilBERT classifier for semantic injection detection
+- [x] ONNX export with INT8 quantization (~65MB model)
+- [x] Hybrid ensemble scoring (regex weight 0.6 + ML weight 0.4)
+- [x] Go build tag system (`-tags ml`) for optional ML support
+- [x] Python training pipeline (train, export, evaluate)
+- [x] ML-enabled Docker image with ONNX Runtime
 - [ ] Kubernetes admission webhook for cluster-wide protection
 - [ ] Prometheus metrics and Grafana dashboards
 - [ ] Rate limiting and adaptive thresholds
@@ -572,6 +643,7 @@ Automated quality gates on every push and pull request:
 | [Integration Guide](docs/INTEGRATION_GUIDE.md) | Step-by-step setup for Python, Node.js, Go, and cURL |
 | [API Reference](docs/API_REFERENCE.md) | Request formats, response formats, headers, and endpoints |
 | [Rule Development](docs/RULE_DEVELOPMENT.md) | How to write, test, and contribute custom detection rules |
+| [ML Training Pipeline](ml/README.md) | Fine-tune DistilBERT, export to ONNX, and evaluate models |
 | [Examples](examples/) | Runnable integration code for Python, Node.js, cURL, and Docker |
 | [Changelog](CHANGELOG.md) | Version history and release notes |
 

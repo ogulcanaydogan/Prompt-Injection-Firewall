@@ -36,3 +36,10 @@ bin/
 # Environment
 .env
 .env.local
+
+# ML / ONNX models
+*.onnx
+ml/output/
+ml/__pycache__/
+ml/.venv/
+ml/venv/

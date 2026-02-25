@@ -29,6 +29,11 @@ func TestNewProxyCmd_Flags(t *testing.T) {
 	actionFlag := cmd.Flags().Lookup("action")
 	require.NotNil(t, actionFlag)
 	assert.Equal(t, "block", actionFlag.DefValue)
+
+	modelFlag := cmd.Flags().Lookup("model")
+	require.NotNil(t, modelFlag)
+	assert.Equal(t, "", modelFlag.DefValue)
+	assert.Equal(t, "m", modelFlag.Shorthand)
 }
 
 func TestNewProxyCmd_LongDescription(t *testing.T) {

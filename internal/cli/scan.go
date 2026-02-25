@@ -21,6 +21,7 @@ var (
 	scanQuiet     bool
 	scanVerbose   bool
 	scanRules     []string
+	scanModel     string
 )
 
 func newScanCmd() *cobra.Command {
@@ -46,6 +47,7 @@ Exit codes:
 	cmd.Flags().BoolVarP(&scanQuiet, "quiet", "q", false, "only output exit code")
 	cmd.Flags().BoolVarP(&scanVerbose, "verbose", "v", false, "show detailed match information")
 	cmd.Flags().StringSliceVarP(&scanRules, "rules", "r", nil, "additional rule files to load")
+	cmd.Flags().StringVarP(&scanModel, "model", "m", "", "path to ONNX model directory or HuggingFace model ID")
 
 	return cmd
 }
@@ -156,7 +158,31 @@ func buildDetector() (detector.Detector, error) {
 		return nil, err
 	}
 
-	ensemble := detector.NewEnsemble(detector.StrategyAnyMatch, 45*time.Millisecond)
+	// Determine ensemble strategy and try to add ML detector
+	modelPath := scanModel
+	if modelPath == "" {
+		modelPath = os.Getenv("PIF_DETECTOR_ML_MODEL_PATH")
+	}
+
+	if modelPath != "" {
+		// Try to create ML detector — if built without ml tag, this returns ErrMLNotAvailable
+		mlDet, mlErr := detector.NewMLDetector(detector.MLConfig{
+			ModelPath: modelPath,
+			Threshold: 0.85,
+		})
+		if mlErr == nil {
+			// ML available: use weighted strategy with both detectors
+			ensemble := detector.NewEnsemble(detector.StrategyWeighted, 100*time.Millisecond)
+			ensemble.Register(d, 0.6)
+			ensemble.Register(mlDet, 0.4)
+			return ensemble, nil
+		}
+		// ML not available: log and fall back to regex-only
+		fmt.Fprintf(os.Stderr, "Warning: ML detector unavailable (%v), using regex-only\n", mlErr)
+	}
+
+	// Regex-only: use AnyMatch strategy
+	ensemble := detector.NewEnsemble(detector.StrategyAnyMatch, 100*time.Millisecond)
 	ensemble.Register(d, 1.0)
 
 	return ensemble, nil

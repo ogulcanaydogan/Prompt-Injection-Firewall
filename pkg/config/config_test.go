@@ -13,8 +13,12 @@ func TestDefault(t *testing.T) {
 	cfg := Default()
 	assert.Equal(t, 0.5, cfg.Detector.Threshold)
 	assert.Equal(t, "low", cfg.Detector.MinSeverity)
-	assert.Equal(t, 45, cfg.Detector.TimeoutMs)
-	assert.Equal(t, "any", cfg.Detector.Strategy)
+	assert.Equal(t, 100, cfg.Detector.TimeoutMs)
+	assert.Equal(t, "weighted", cfg.Detector.Strategy)
+	assert.Equal(t, "", cfg.Detector.MLModelPath)
+	assert.Equal(t, 0.85, cfg.Detector.MLThreshold)
+	assert.Equal(t, 0.6, cfg.Detector.Weights.Regex)
+	assert.Equal(t, 0.4, cfg.Detector.Weights.ML)
 	assert.Equal(t, ":8080", cfg.Proxy.Listen)
 	assert.Equal(t, "block", cfg.Proxy.Action)
 	assert.Equal(t, "info", cfg.Logging.Level)
@@ -31,6 +35,9 @@ func TestLoad_FromFile(t *testing.T) {
 	assert.Equal(t, 0.5, cfg.Detector.Threshold)
 	assert.Equal(t, ":8080", cfg.Proxy.Listen)
 	assert.Equal(t, "https://api.openai.com", cfg.Proxy.Target)
+	assert.Equal(t, 0.85, cfg.Detector.MLThreshold)
+	assert.Equal(t, 0.6, cfg.Detector.Weights.Regex)
+	assert.Equal(t, 0.4, cfg.Detector.Weights.ML)
 }
 
 func TestLoad_NoFile(t *testing.T) {
@@ -52,6 +59,16 @@ func TestLoad_EnvOverride(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0.8, cfg.Detector.Threshold)
 	assert.Equal(t, ":9090", cfg.Proxy.Listen)
+}
+
+func TestLoad_MLEnvOverride(t *testing.T) {
+	t.Setenv("PIF_DETECTOR_ML_MODEL_PATH", "/path/to/model")
+	t.Setenv("PIF_DETECTOR_ML_THRESHOLD", "0.90")
+
+	cfg, err := Load("")
+	require.NoError(t, err)
+	assert.Equal(t, "/path/to/model", cfg.Detector.MLModelPath)
+	assert.Equal(t, 0.90, cfg.Detector.MLThreshold)
 }
 
 func TestLoad_CustomConfig(t *testing.T) {

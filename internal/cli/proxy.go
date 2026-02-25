@@ -12,6 +12,7 @@ var (
 	proxyTarget string
 	proxyListen string
 	proxyAction string
+	proxyModel  string
 )
 
 func newProxyCmd() *cobra.Command {
@@ -30,11 +31,17 @@ Usage with OpenAI:
 	cmd.Flags().StringVar(&proxyTarget, "target", "https://api.openai.com", "upstream LLM API URL")
 	cmd.Flags().StringVar(&proxyListen, "listen", ":8080", "proxy listen address")
 	cmd.Flags().StringVar(&proxyAction, "action", "block", "action on detection: block, flag, log")
+	cmd.Flags().StringVarP(&proxyModel, "model", "m", "", "path to ONNX model directory or HuggingFace model ID")
 
 	return cmd
 }
 
 func runProxy(cmd *cobra.Command, args []string) error {
+	// If proxy has --model, propagate to scan's model var for buildDetector()
+	if proxyModel != "" {
+		scanModel = proxyModel
+	}
+
 	d, err := buildDetector()
 	if err != nil {
 		return fmt.Errorf("building detector: %w", err)
@@ -42,11 +49,18 @@ func runProxy(cmd *cobra.Command, args []string) error {
 
 	ensemble := d.(*detector.EnsembleDetector)
 
+	mlStatus := "disabled"
+	if ensemble.HasMLDetector() {
+		mlStatus = "enabled"
+	}
+
 	fmt.Fprintf(cmd.OutOrStdout(), "Starting PIF proxy\n")
-	fmt.Fprintf(cmd.OutOrStdout(), "  Target:  %s\n", proxyTarget)
-	fmt.Fprintf(cmd.OutOrStdout(), "  Listen:  %s\n", proxyListen)
-	fmt.Fprintf(cmd.OutOrStdout(), "  Action:  %s\n", proxyAction)
-	fmt.Fprintf(cmd.OutOrStdout(), "  Rules:   %d loaded\n", ensemble.RuleCount())
+	fmt.Fprintf(cmd.OutOrStdout(), "  Target:     %s\n", proxyTarget)
+	fmt.Fprintf(cmd.OutOrStdout(), "  Listen:     %s\n", proxyListen)
+	fmt.Fprintf(cmd.OutOrStdout(), "  Action:     %s\n", proxyAction)
+	fmt.Fprintf(cmd.OutOrStdout(), "  Rules:      %d loaded\n", ensemble.RuleCount())
+	fmt.Fprintf(cmd.OutOrStdout(), "  ML:         %s\n", mlStatus)
+	fmt.Fprintf(cmd.OutOrStdout(), "  Detectors:  %d\n", ensemble.DetectorCount())
 
 	return proxy.StartServer(proxyTarget, proxyListen, proxyAction, d)
 }

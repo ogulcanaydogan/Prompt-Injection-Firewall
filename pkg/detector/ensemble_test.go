@@ -118,3 +118,45 @@ func TestDeduplicateFindings(t *testing.T) {
 	deduped := deduplicateFindings(findings)
 	assert.Len(t, deduped, 3)
 }
+
+func TestEnsemble_HasMLDetector(t *testing.T) {
+	ensemble := NewEnsemble(StrategyWeighted, 5*time.Second)
+
+	// No ML detector registered
+	assert.False(t, ensemble.HasMLDetector())
+
+	// Register regex detector
+	d := loadTestDetector(t)
+	ensemble.Register(d, 0.6)
+	assert.False(t, ensemble.HasMLDetector())
+
+	// In stub build, we can't actually create a real MLDetector,
+	// but we can verify the method works with detector IDs
+	assert.Equal(t, 1, ensemble.DetectorCount())
+}
+
+func TestEnsemble_DetectorCount(t *testing.T) {
+	ensemble := NewEnsemble(StrategyAnyMatch, 5*time.Second)
+	assert.Equal(t, 0, ensemble.DetectorCount())
+
+	d := loadTestDetector(t)
+	ensemble.Register(d, 1.0)
+	assert.Equal(t, 1, ensemble.DetectorCount())
+
+	d2 := loadTestDetector(t)
+	ensemble.Register(d2, 0.5)
+	assert.Equal(t, 2, ensemble.DetectorCount())
+}
+
+func TestEnsemble_Strategy(t *testing.T) {
+	ensemble := NewEnsemble(StrategyWeighted, 5*time.Second)
+	assert.Equal(t, StrategyWeighted, ensemble.Strategy())
+}
+
+func TestParseStrategy(t *testing.T) {
+	assert.Equal(t, StrategyAnyMatch, ParseStrategy("any"))
+	assert.Equal(t, StrategyMajority, ParseStrategy("majority"))
+	assert.Equal(t, StrategyWeighted, ParseStrategy("weighted"))
+	assert.Equal(t, StrategyAnyMatch, ParseStrategy("unknown"))
+	assert.Equal(t, StrategyAnyMatch, ParseStrategy(""))
+}
