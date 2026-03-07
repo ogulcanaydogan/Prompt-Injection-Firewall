@@ -109,6 +109,7 @@ PIF addresses this critical gap by providing a **transparent, low-latency detect
 - **Exit codes** for scripted workflows (0=clean, 1=injection, 2=error)
 - **Environment variable overrides** (`PIF_*` prefix)
 - **Health check endpoint** (`/healthz`)
+- **Prometheus metrics endpoint** (`/metrics`)
 - **golangci-lint** and race-condition-tested CI
 
 </td>
@@ -164,8 +165,9 @@ PIF is built as a modular, layered system following clean architecture principle
 ```
 prompt-injection-firewall/
 ├── cmd/
-│   ├── pif-cli/          # CLI binary entry point
-│   └── firewall/         # Proxy server binary entry point
+│   ├── pif-cli/          # Official CLI binary entry point (`pif`)
+│   ├── firewall/         # Backward-compatible CLI/proxy binary entry point
+│   └── webhook/          # Kubernetes validating admission webhook binary
 ├── internal/
 │   └── cli/              # CLI commands (scan, proxy, rules, version)
 ├── pkg/
@@ -218,8 +220,8 @@ docker run -p 8080:8080 ghcr.io/ogulcanaydogan/prompt-injection-firewall
 ```bash
 git clone https://github.com/ogulcanaydogan/Prompt-Injection-Firewall.git
 cd Prompt-Injection-Firewall
-go build ./cmd/pif-cli/
-go build ./cmd/firewall/
+go build -o pif ./cmd/pif-cli/
+go build -o pif-firewall ./cmd/firewall/
 ```
 
 ### Try It
@@ -331,10 +333,10 @@ ML detection requires ONNX Runtime and CGO. Default builds remain unchanged (reg
 
 ```bash
 # Default build (regex-only, no CGO required)
-go build ./cmd/pif-cli/
+go build -o pif ./cmd/pif-cli/
 
 # ML-enabled build (requires ONNX Runtime + CGO)
-CGO_ENABLED=1 go build -tags ml ./cmd/pif-cli/
+CGO_ENABLED=1 go build -tags ml -o pif ./cmd/pif-cli/
 
 # ML-enabled Docker image
 docker build -f deploy/docker/Dockerfile.ml -t pif:ml .
@@ -424,6 +426,16 @@ export OPENAI_BASE_URL=http://localhost:8080/v1
 python my_app.py
 ```
 
+### Operational Endpoints
+
+```bash
+# Service health
+curl http://localhost:8080/healthz
+
+# Prometheus metrics
+curl http://localhost:8080/metrics
+```
+
 ### Response Actions
 
 | Action | Behavior | HTTP Response | Use Case |
@@ -467,6 +479,10 @@ detector:
   ensemble_strategy: "weighted" # Strategy: any | majority | weighted
   ml_model_path: ""           # Path to ONNX model or HuggingFace ID (empty = disabled)
   ml_threshold: 0.85          # ML confidence threshold
+  adaptive_threshold:
+    enabled: true             # Enable per-client adaptive thresholding
+    min_threshold: 0.25       # Lower clamp for adaptive threshold
+    ewma_alpha: 0.2           # EWMA alpha for suspicious traffic tracking
   weights:
     regex: 0.6                # Weight for regex detector in ensemble
     ml: 0.4                   # Weight for ML detector in ensemble
@@ -479,6 +495,18 @@ proxy:
   max_body_size: 1048576                  # Max request body (1MB)
   read_timeout: "10s"
   write_timeout: "30s"
+  rate_limit:
+    enabled: true
+    requests_per_minute: 120
+    burst: 30
+    key_header: "X-Forwarded-For"         # Fallback: remote address
+
+# Admission webhook settings
+webhook:
+  listen: ":8443"
+  tls_cert_file: "/etc/pif/webhook/tls.crt"
+  tls_key_file: "/etc/pif/webhook/tls.key"
+  pif_host_pattern: "(?i)pif-proxy"
 
 # Rule file paths
 rules:
@@ -508,6 +536,8 @@ Every config key can be overridden via `PIF_` prefixed environment variables:
 PIF_DETECTOR_THRESHOLD=0.7
 PIF_PROXY_TARGET=https://api.anthropic.com
 PIF_PROXY_ACTION=flag
+PIF_PROXY_RATE_LIMIT_REQUESTS_PER_MINUTE=200
+PIF_DETECTOR_ADAPTIVE_THRESHOLD_EWMA_ALPHA=0.3
 PIF_LOGGING_LEVEL=debug
 ```
 
@@ -540,6 +570,26 @@ services:
 - **Non-root execution** (`nonroot:nonroot` user)
 - **Read-only mounts** for rules and config
 - **Minimal image footprint** (~15MB compressed)
+
+### Kubernetes Admission Webhook
+
+PIF includes a validating admission webhook (`cmd/webhook`) for cluster-wide policy enforcement.
+
+It validates `Pod`, `Deployment`, `StatefulSet`, `Job`, and `CronJob` `CREATE/UPDATE` requests:
+
+- If `OPENAI_API_KEY` exists, `OPENAI_BASE_URL` must match `webhook.pif_host_pattern`
+- If `ANTHROPIC_API_KEY` exists, `ANTHROPIC_BASE_URL` must match `webhook.pif_host_pattern`
+- Bypass is only allowed via annotation `pif.io/skip-validation: "true"`
+
+Apply manifests:
+
+```bash
+kubectl apply -f deploy/kubernetes/namespace.yaml
+kubectl apply -f deploy/kubernetes/webhook-service.yaml
+kubectl apply -f deploy/kubernetes/webhook-deployment.yaml
+kubectl apply -f deploy/kubernetes/webhook-certificate.yaml
+kubectl apply -f deploy/kubernetes/validating-webhook-configuration.yaml
+```
 
 ---
 
@@ -622,9 +672,9 @@ Automated quality gates on every push and pull request:
 - [x] Go build tag system (`-tags ml`) for optional ML support
 - [x] Python training pipeline (train, export, evaluate)
 - [x] ML-enabled Docker image with ONNX Runtime
-- [ ] Kubernetes admission webhook for cluster-wide protection
-- [ ] Prometheus metrics and Grafana dashboards
-- [ ] Rate limiting and adaptive thresholds
+- [x] Kubernetes admission webhook for cluster-wide protection
+- [x] Prometheus metrics and Grafana dashboards
+- [x] Rate limiting and adaptive thresholds
 
 ### Phase 3 -- Platform Features
 
@@ -644,6 +694,9 @@ Automated quality gates on every push and pull request:
 | [API Reference](docs/API_REFERENCE.md) | Request formats, response formats, headers, and endpoints |
 | [Rule Development](docs/RULE_DEVELOPMENT.md) | How to write, test, and contribute custom detection rules |
 | [ML Training Pipeline](ml/README.md) | Fine-tune DistilBERT, export to ONNX, and evaluate models |
+| [Kubernetes Webhook Deployment](deploy/kubernetes/README.md) | Validating admission webhook manifests and setup |
+| [Observability Assets](deploy/observability/) | Prometheus scrape config and Grafana dashboard |
+| [Phase 2 Finalization Report](docs/PHASE2_FINALIZATION_REPORT.md) | Verification evidence for final closure criteria |
 | [Examples](examples/) | Runnable integration code for Python, Node.js, cURL, and Docker |
 | [Changelog](CHANGELOG.md) | Version history and release notes |
 

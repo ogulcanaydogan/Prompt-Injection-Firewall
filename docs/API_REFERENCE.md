@@ -18,6 +18,22 @@ GET /healthz
 
 Returns HTTP 200 when PIF is running and ready to accept requests.
 
+### Metrics
+
+```
+GET /metrics
+```
+
+Exposes Prometheus metrics for traffic, scan latency, detections, score distribution, and rate-limit events.
+
+Core metric names:
+
+- `pif_http_requests_total`
+- `pif_scan_duration_seconds`
+- `pif_injection_detections_total`
+- `pif_detection_score`
+- `pif_rate_limit_events_total`
+
 ### Proxy (All Other Paths)
 
 ```
@@ -93,6 +109,22 @@ Content-Type: application/json
 | `error.type` | string | Always `prompt_injection_detected` |
 | `error.score` | float | Threat score (0.0 - 1.0) |
 | `error.findings` | int | Number of matched detection rules |
+
+### Rate-Limited Request (HTTP 429)
+
+When client rate limits are enabled and exceeded:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/json
+
+{
+  "error": {
+    "message": "Request rate-limited by Prompt Injection Firewall",
+    "type": "rate_limit_exceeded"
+  }
+}
+```
 
 ### Flag Action (HTTP 200 + Headers)
 

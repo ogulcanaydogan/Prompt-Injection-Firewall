@@ -5,6 +5,23 @@ All notable changes to the Prompt Injection Firewall will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Phase 2 Finalization**
+  - Prometheus metrics endpoint (`GET /metrics`) and dashboard assets
+  - Client rate limiting and adaptive threshold controls
+  - Kubernetes validating admission webhook (`cmd/webhook`) and deployment manifests
+  - Phase 2 finalization report with local/CI-dry-run/docker/kind smoke evidence:
+    `docs/PHASE2_FINALIZATION_REPORT.md`
+
+### Changed
+
+- Restored official CLI entrypoint at `cmd/pif-cli` (`pif` command surface).
+- Build/release/docker paths split between `cmd/pif-cli` and `cmd/firewall`.
+- Go toolchain references in CI and Docker upgraded to `1.25.x` / `1.25`.
+
 ## [1.1.0] - 2026-02-24
 
 ### Added
