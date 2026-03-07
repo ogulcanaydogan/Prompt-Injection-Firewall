@@ -694,7 +694,8 @@ Automated quality gates on every push and pull request:
 
 ### Phase 3 -- Platform Features
 
-- [ ] Web-based dashboard UI for monitoring and rule management
+- [x] Web-based read-only dashboard UI for monitoring (MVP)
+- [ ] Dashboard rule management (write/edit workflows)
 - [ ] Real-time alerting (Slack, PagerDuty, webhooks)
 - [ ] Multi-tenant support with per-tenant policies
 - [ ] Attack replay and forensic analysis tools
