@@ -2,10 +2,13 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"time"
 
-	"github.com/spf13/cobra"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/config"
 	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
 	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/proxy"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -37,9 +40,48 @@ Usage with OpenAI:
 }
 
 func runProxy(cmd *cobra.Command, args []string) error {
-	// If proxy has --model, propagate to scan's model var for buildDetector()
+	configPath := cfgFile
+	if configPath == "" {
+		if _, err := os.Stat("config.yaml"); err == nil {
+			configPath = "config.yaml"
+		}
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
+	target := cfg.Proxy.Target
+	listen := cfg.Proxy.Listen
+	action := cfg.Proxy.Action
+	if cmd.Flags().Lookup("target").Changed {
+		target = proxyTarget
+	}
+	if cmd.Flags().Lookup("listen").Changed {
+		listen = proxyListen
+	}
+	if cmd.Flags().Lookup("action").Changed {
+		action = proxyAction
+	}
+
+	// If proxy has --model, propagate to scan's model var for buildDetector().
+	// Otherwise, use config-provided model path.
 	if proxyModel != "" {
 		scanModel = proxyModel
+	} else {
+		scanModel = cfg.Detector.MLModelPath
+	}
+
+	// If proxy has --model, propagate to scan's model var for buildDetector()
+	readTimeout, err := time.ParseDuration(cfg.Proxy.ReadTimeout)
+	if err != nil {
+		return fmt.Errorf("parsing proxy.read_timeout: %w", err)
+	}
+
+	writeTimeout, err := time.ParseDuration(cfg.Proxy.WriteTimeout)
+	if err != nil {
+		return fmt.Errorf("parsing proxy.write_timeout: %w", err)
 	}
 
 	d, err := buildDetector()
@@ -55,12 +97,32 @@ func runProxy(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Starting PIF proxy\n")
-	fmt.Fprintf(cmd.OutOrStdout(), "  Target:     %s\n", proxyTarget)
-	fmt.Fprintf(cmd.OutOrStdout(), "  Listen:     %s\n", proxyListen)
-	fmt.Fprintf(cmd.OutOrStdout(), "  Action:     %s\n", proxyAction)
+	fmt.Fprintf(cmd.OutOrStdout(), "  Target:     %s\n", target)
+	fmt.Fprintf(cmd.OutOrStdout(), "  Listen:     %s\n", listen)
+	fmt.Fprintf(cmd.OutOrStdout(), "  Action:     %s\n", action)
 	fmt.Fprintf(cmd.OutOrStdout(), "  Rules:      %d loaded\n", ensemble.RuleCount())
 	fmt.Fprintf(cmd.OutOrStdout(), "  ML:         %s\n", mlStatus)
 	fmt.Fprintf(cmd.OutOrStdout(), "  Detectors:  %d\n", ensemble.DetectorCount())
+	fmt.Fprintf(cmd.OutOrStdout(), "  Threshold:  %.2f\n", cfg.Detector.Threshold)
 
-	return proxy.StartServer(proxyTarget, proxyListen, proxyAction, d)
+	return proxy.StartServer(proxy.ServerOptions{
+		TargetURL:    target,
+		Listen:       listen,
+		Action:       action,
+		Threshold:    cfg.Detector.Threshold,
+		MaxBodySize:  cfg.Proxy.MaxBodySize,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		RateLimit: proxy.RateLimitOptions{
+			Enabled:           cfg.Proxy.RateLimit.Enabled,
+			RequestsPerMinute: cfg.Proxy.RateLimit.RequestsPerMinute,
+			Burst:             cfg.Proxy.RateLimit.Burst,
+			KeyHeader:         cfg.Proxy.RateLimit.KeyHeader,
+		},
+		AdaptiveThreshold: proxy.AdaptiveThresholdOptions{
+			Enabled:      cfg.Detector.AdaptiveThreshold.Enabled,
+			MinThreshold: cfg.Detector.AdaptiveThreshold.MinThreshold,
+			EWMAAlpha:    cfg.Detector.AdaptiveThreshold.EWMAAlpha,
+		},
+	}, d)
 }

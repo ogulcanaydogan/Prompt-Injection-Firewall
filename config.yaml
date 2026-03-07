@@ -5,6 +5,10 @@ detector:
   ensemble_strategy: "weighted"
   ml_model_path: ""          # Path to ONNX model dir or HuggingFace model ID (empty = disabled)
   ml_threshold: 0.85         # Minimum ML confidence to flag as injection
+  adaptive_threshold:
+    enabled: true
+    min_threshold: 0.25
+    ewma_alpha: 0.2
   weights:
     regex: 0.6               # Ensemble weight for regex detector
     ml: 0.4                  # Ensemble weight for ML detector
@@ -23,6 +27,17 @@ proxy:
   max_body_size: 1048576
   read_timeout: "10s"
   write_timeout: "30s"
+  rate_limit:
+    enabled: true
+    requests_per_minute: 120
+    burst: 30
+    key_header: "X-Forwarded-For"
+
+webhook:
+  listen: ":8443"
+  tls_cert_file: "/etc/pif/webhook/tls.crt"
+  tls_key_file: "/etc/pif/webhook/tls.key"
+  pif_host_pattern: "(?i)pif-proxy"
 
 allowlist:
   patterns: []
