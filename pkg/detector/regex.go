@@ -53,7 +53,7 @@ func NewRegexDetector(ruleSets ...rules.RuleSet) (*RegexDetector, error) {
 	}, nil
 }
 
-func (d *RegexDetector) ID() string { return d.id }
+func (d *RegexDetector) ID() string  { return d.id }
 func (d *RegexDetector) Ready() bool { return len(d.compiled) > 0 }
 
 // Scan checks the input text against all compiled patterns.
@@ -92,7 +92,7 @@ func (d *RegexDetector) Scan(ctx context.Context, input ScanInput) (*ScanResult,
 				Description: cr.rule.Description,
 				MatchedText: matched,
 				Offset:      loc[0],
-				Length:       loc[1] - loc[0],
+				Length:      loc[1] - loc[0],
 			})
 		}
 	}

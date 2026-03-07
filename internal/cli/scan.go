@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
 	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
 	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/rules"
 )

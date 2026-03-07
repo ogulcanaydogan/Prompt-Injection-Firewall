@@ -16,9 +16,9 @@ func findRulesDir(t *testing.T) string {
 
 	// Walk up from test file location to find project root
 	candidates := []string{
-		"../../rules",       // internal/cli -> project root
-		"../../../rules",    // fallback
-		"rules",             // already at root
+		"../../rules",    // internal/cli -> project root
+		"../../../rules", // fallback
+		"rules",          // already at root
 	}
 
 	for _, c := range candidates {

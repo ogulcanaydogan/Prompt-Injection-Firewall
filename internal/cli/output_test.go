@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
 )
 
 func cleanResult() *detector.ScanResult {
@@ -153,7 +154,7 @@ func TestPrintTable_TruncatesLongText(t *testing.T) {
 				Severity:    detector.SeverityHigh,
 				MatchedText: strings.Repeat("a", 80), // longer than 50 chars
 				Offset:      0,
-				Length:       80,
+				Length:      80,
 			},
 		},
 		DetectorID: "test",

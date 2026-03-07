@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
 )
 
 // mockDetector is a simple detector that always returns clean results.

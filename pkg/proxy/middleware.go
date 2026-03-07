@@ -72,7 +72,9 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			actionLabel := actionString(action)
 			outcome := "forwarded"
-			defer opts.Metrics.ObserveHTTPRequest(r.Method, actionLabel, outcome)
+			defer func() {
+				opts.Metrics.ObserveHTTPRequest(r.Method, actionLabel, outcome)
+			}()
 
 			clientKey := requestKeyFromRequest(r, opts.RateLimit.KeyHeader)
 			if limiter != nil {
