@@ -28,6 +28,11 @@ func TestDefault(t *testing.T) {
 	assert.Equal(t, 120, cfg.Proxy.RateLimit.RequestsPerMinute)
 	assert.Equal(t, 30, cfg.Proxy.RateLimit.Burst)
 	assert.Equal(t, "X-Forwarded-For", cfg.Proxy.RateLimit.KeyHeader)
+	assert.False(t, cfg.Dashboard.Enabled)
+	assert.Equal(t, "/dashboard", cfg.Dashboard.Path)
+	assert.Equal(t, "/api/dashboard", cfg.Dashboard.APIPrefix)
+	assert.Equal(t, 5, cfg.Dashboard.RefreshSeconds)
+	assert.False(t, cfg.Dashboard.Auth.Enabled)
 	assert.Equal(t, ":8443", cfg.Webhook.Listen)
 	assert.Equal(t, `(?i)pif-proxy`, cfg.Webhook.PIFHostPattern)
 	assert.Equal(t, "info", cfg.Logging.Level)
@@ -67,6 +72,10 @@ func TestLoad_EnvOverride(t *testing.T) {
 	t.Setenv("PIF_PROXY_LISTEN", ":9090")
 	t.Setenv("PIF_PROXY_RATE_LIMIT_REQUESTS_PER_MINUTE", "240")
 	t.Setenv("PIF_DETECTOR_ADAPTIVE_THRESHOLD_EWMA_ALPHA", "0.3")
+	t.Setenv("PIF_DASHBOARD_ENABLED", "true")
+	t.Setenv("PIF_DASHBOARD_AUTH_ENABLED", "true")
+	t.Setenv("PIF_DASHBOARD_AUTH_USERNAME", "admin")
+	t.Setenv("PIF_DASHBOARD_AUTH_PASSWORD", "secret")
 
 	cfg, err := Load("")
 	require.NoError(t, err)
@@ -74,6 +83,10 @@ func TestLoad_EnvOverride(t *testing.T) {
 	assert.Equal(t, ":9090", cfg.Proxy.Listen)
 	assert.Equal(t, 240, cfg.Proxy.RateLimit.RequestsPerMinute)
 	assert.Equal(t, 0.3, cfg.Detector.AdaptiveThreshold.EWMAAlpha)
+	assert.True(t, cfg.Dashboard.Enabled)
+	assert.True(t, cfg.Dashboard.Auth.Enabled)
+	assert.Equal(t, "admin", cfg.Dashboard.Auth.Username)
+	assert.Equal(t, "secret", cfg.Dashboard.Auth.Password)
 }
 
 func TestLoad_MLEnvOverride(t *testing.T) {
@@ -104,6 +117,15 @@ proxy:
     enabled: false
     requests_per_minute: 30
     burst: 10
+dashboard:
+  enabled: true
+  path: "/admin/pif"
+  api_prefix: "/admin/pif/api"
+  refresh_seconds: 3
+  auth:
+    enabled: true
+    username: "ops"
+    password: "pass"
 webhook:
   pif_host_pattern: "(?i)my-pif"
 `
@@ -123,6 +145,13 @@ webhook:
 	assert.False(t, cfg.Proxy.RateLimit.Enabled)
 	assert.Equal(t, 30, cfg.Proxy.RateLimit.RequestsPerMinute)
 	assert.Equal(t, 10, cfg.Proxy.RateLimit.Burst)
+	assert.True(t, cfg.Dashboard.Enabled)
+	assert.Equal(t, "/admin/pif", cfg.Dashboard.Path)
+	assert.Equal(t, "/admin/pif/api", cfg.Dashboard.APIPrefix)
+	assert.Equal(t, 3, cfg.Dashboard.RefreshSeconds)
+	assert.True(t, cfg.Dashboard.Auth.Enabled)
+	assert.Equal(t, "ops", cfg.Dashboard.Auth.Username)
+	assert.Equal(t, "pass", cfg.Dashboard.Auth.Password)
 	assert.False(t, cfg.Detector.AdaptiveThreshold.Enabled)
 	assert.Equal(t, 0.4, cfg.Detector.AdaptiveThreshold.MinThreshold)
 	assert.Equal(t, 0.1, cfg.Detector.AdaptiveThreshold.EWMAAlpha)

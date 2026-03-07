@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIF Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="layout">
+    <header class="hero">
+      <h1>Prompt Injection Firewall</h1>
+      <p>Read-only monitoring dashboard</p>
+      <div class="meta">
+        <span id="status-pill">Connecting...</span>
+        <span id="refresh-pill">Refresh: __REFRESH_SECONDS__s</span>
+      </div>
+    </header>
+
+    <section class="cards">
+      <article class="card">
+        <h2>Total Requests</h2>
+        <p id="total-requests" class="value">-</p>
+      </article>
+      <article class="card">
+        <h2>Injection Detections</h2>
+        <p id="total-injections" class="value">-</p>
+      </article>
+      <article class="card">
+        <h2>Rate-Limit Events</h2>
+        <p id="total-ratelimit" class="value">-</p>
+      </article>
+      <article class="card">
+        <h2>Scan P95 (s)</h2>
+        <p id="scan-p95" class="value">-</p>
+      </article>
+      <article class="card">
+        <h2>Last Refresh</h2>
+        <p id="last-refresh" class="value">-</p>
+      </article>
+    </section>
+
+    <section class="panel-grid">
+      <article class="panel">
+        <h3>Request Trend</h3>
+        <canvas id="requests-chart" width="800" height="180"></canvas>
+      </article>
+      <article class="panel">
+        <h3>Detection Trend</h3>
+        <canvas id="detections-chart" width="800" height="180"></canvas>
+      </article>
+      <article class="panel">
+        <h3>Loaded Rule Sets</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Version</th>
+              <th>Rules</th>
+            </tr>
+          </thead>
+          <tbody id="rules-body">
+            <tr>
+              <td colspan="3">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    window.PIF_DASHBOARD_API_PREFIX = "__API_PREFIX__";
+    window.PIF_DASHBOARD_REFRESH_SECONDS = "__REFRESH_SECONDS__";
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>

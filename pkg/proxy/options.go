@@ -25,6 +25,29 @@ type AdaptiveThresholdOptions struct {
 	EWMAAlpha    float64
 }
 
+// DashboardAuthOptions configures dashboard Basic Auth.
+type DashboardAuthOptions struct {
+	Enabled  bool
+	Username string
+	Password string
+}
+
+// DashboardOptions configures embedded dashboard behavior.
+type DashboardOptions struct {
+	Enabled        bool
+	Path           string
+	APIPrefix      string
+	RefreshSeconds int
+	Auth           DashboardAuthOptions
+}
+
+// RuleSetInfo represents dashboard-facing rule inventory metadata.
+type RuleSetInfo struct {
+	Name      string `json:"name"`
+	Version   string `json:"version,omitempty"`
+	RuleCount int    `json:"rule_count"`
+}
+
 // MiddlewareOptions configures scanning middleware behavior.
 type MiddlewareOptions struct {
 	Threshold         float64
@@ -50,4 +73,6 @@ type ServerOptions struct {
 	RateLimit         RateLimitOptions
 	AdaptiveThreshold AdaptiveThresholdOptions
 	Metrics           *Metrics
+	Dashboard         DashboardOptions
+	RuleInventory     []RuleSetInfo
 }

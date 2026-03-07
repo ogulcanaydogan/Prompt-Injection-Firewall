@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -10,6 +11,7 @@ import (
 	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/config"
 	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
 	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/proxy"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/rules"
 )
 
 var (
@@ -106,6 +108,8 @@ func runProxy(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(cmd.OutOrStdout(), "  Detectors:  %d\n", ensemble.DetectorCount())
 	fmt.Fprintf(cmd.OutOrStdout(), "  Threshold:  %.2f\n", cfg.Detector.Threshold)
 
+	ruleInventory := loadRuleInventory(cfg)
+
 	return proxy.StartServer(proxy.ServerOptions{
 		TargetURL:    target,
 		Listen:       listen,
@@ -125,5 +129,63 @@ func runProxy(cmd *cobra.Command, args []string) error {
 			MinThreshold: cfg.Detector.AdaptiveThreshold.MinThreshold,
 			EWMAAlpha:    cfg.Detector.AdaptiveThreshold.EWMAAlpha,
 		},
+		Dashboard: proxy.DashboardOptions{
+			Enabled:        cfg.Dashboard.Enabled,
+			Path:           cfg.Dashboard.Path,
+			APIPrefix:      cfg.Dashboard.APIPrefix,
+			RefreshSeconds: cfg.Dashboard.RefreshSeconds,
+			Auth: proxy.DashboardAuthOptions{
+				Enabled:  cfg.Dashboard.Auth.Enabled,
+				Username: cfg.Dashboard.Auth.Username,
+				Password: cfg.Dashboard.Auth.Password,
+			},
+		},
+		RuleInventory: ruleInventory,
 	}, d)
+}
+
+func loadRuleInventory(cfg *config.Config) []proxy.RuleSetInfo {
+	paths := append([]string{}, cfg.Rules.Paths...)
+	paths = append(paths, cfg.Rules.CustomPaths...)
+
+	inventory := make([]proxy.RuleSetInfo, 0, len(paths))
+	for _, p := range paths {
+		rs, err := loadRuleSetWithFallback(p)
+		if err != nil {
+			continue
+		}
+
+		enabledRules := 0
+		for _, r := range rs.Rules {
+			if r.Enabled {
+				enabledRules++
+			}
+		}
+
+		inventory = append(inventory, proxy.RuleSetInfo{
+			Name:      rs.Name,
+			Version:   rs.Version,
+			RuleCount: enabledRules,
+		})
+	}
+
+	return inventory
+}
+
+func loadRuleSetWithFallback(path string) (*rules.RuleSet, error) {
+	candidates := []string{path}
+	if !filepath.IsAbs(path) {
+		candidates = append(candidates, filepath.Join("/etc/pif", path))
+	}
+
+	var lastErr error
+	for _, candidate := range candidates {
+		rs, err := rules.LoadFile(candidate)
+		if err == nil {
+			return rs, nil
+		}
+		lastErr = err
+	}
+
+	return nil, lastErr
 }
