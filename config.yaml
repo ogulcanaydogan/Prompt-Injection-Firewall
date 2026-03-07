@@ -42,6 +42,8 @@ dashboard:
     enabled: false
     username: ""
     password: ""
+  rule_management:
+    enabled: false
 
 webhook:
   listen: ":8443"

@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"io"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,26 +16,50 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
+	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/rules"
 )
 
-func buildDashboardTestServer(t *testing.T, dashboard DashboardOptions) *httptest.Server {
+func buildDashboardTestServer(t *testing.T, dashboard DashboardOptions) (*httptest.Server, RuleManager) {
 	t.Helper()
 
-	ensemble := detector.NewEnsemble(detector.StrategyAnyMatch, 45*time.Millisecond)
-	ensemble.Register(&mockDetector{}, 1.0)
+	tmp := t.TempDir()
+	baseRulesPath := filepath.Join(tmp, "base.yaml")
+	customRulesPath := filepath.Join(tmp, "custom.yaml")
+	writeRuleSetFixture(t, baseRulesPath, rules.RuleSet{
+		Name:    "base",
+		Version: "1.0.0",
+		Rules: []rules.Rule{
+			{
+				ID:            "BASE-001",
+				Name:          "base",
+				Description:   "base rule",
+				Category:      "prompt_injection",
+				Severity:      int(detector.SeverityMedium),
+				Pattern:       "base_attack",
+				Enabled:       true,
+				CaseSensitive: false,
+			},
+		},
+	})
 
+	ruleManager, err := NewRuntimeRuleManager(RuntimeRuleManagerOptions{
+		RulePaths:       []string{baseRulesPath},
+		CustomPaths:     []string{customRulesPath},
+		DetectorFactory: testRuleManagerDetectorFactory,
+	})
+	require.NoError(t, err)
+
+	snapshot := ruleManager.Snapshot()
 	metrics := NewMetrics()
 	opts := ServerOptions{
-		TargetURL: "http://upstream.local",
-		Listen:    ":0",
-		Action:    "block",
-		Threshold: 0.5,
-		Metrics:   metrics,
-		Dashboard: dashboard,
-		RuleInventory: []RuleSetInfo{
-			{Name: "owasp", Version: "1.0.0", RuleCount: 24},
-			{Name: "jailbreak", Version: "1.0.0", RuleCount: 87},
-		},
+		TargetURL:     "http://upstream.local",
+		Listen:        ":0",
+		Action:        "block",
+		Threshold:     0.5,
+		Metrics:       metrics,
+		Dashboard:     dashboard,
+		RuleInventory: snapshot.RuleSets,
+		RuleManager:   ruleManager,
 		RateLimit: RateLimitOptions{
 			Enabled:           true,
 			RequestsPerMinute: 120,
@@ -52,7 +78,7 @@ func buildDashboardTestServer(t *testing.T, dashboard DashboardOptions) *httptes
 		_, _ = w.Write([]byte("proxied"))
 	})
 
-	middleware := ScanMiddlewareWithOptions(ensemble, ParseAction(opts.Action), MiddlewareOptions{
+	middleware := ScanMiddlewareWithOptions(ruleManager.Detector(), ParseAction(opts.Action), MiddlewareOptions{
 		Threshold:   opts.Threshold,
 		MaxBodySize: defaultMaxBodySize,
 		ScanTimeout: defaultScanTimeout,
@@ -72,11 +98,11 @@ func buildDashboardTestServer(t *testing.T, dashboard DashboardOptions) *httptes
 	}
 	mux.Handle("/", middleware(upstream))
 
-	return httptest.NewServer(mux)
+	return httptest.NewServer(mux), ruleManager
 }
 
 func TestDashboardDisabled_ReturnsNotFound(t *testing.T) {
-	srv := buildDashboardTestServer(t, DashboardOptions{
+	srv, _ := buildDashboardTestServer(t, DashboardOptions{
 		Enabled:   false,
 		Path:      "/dashboard",
 		APIPrefix: "/api/dashboard",
@@ -94,58 +120,58 @@ func TestDashboardDisabled_ReturnsNotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp2.StatusCode)
 }
 
-func TestDashboardEnabled_NoAuth(t *testing.T) {
-	srv := buildDashboardTestServer(t, DashboardOptions{
-		Enabled:        true,
-		Path:           "/dashboard",
-		APIPrefix:      "/api/dashboard",
-		RefreshSeconds: 5,
-		Auth: DashboardAuthOptions{
-			Enabled: false,
-		},
+func TestDashboardEnabled_NoAuth_ReadOnlyWhenRuleManagementDisabled(t *testing.T) {
+	srv, _ := buildDashboardTestServer(t, DashboardOptions{
+		Enabled:               true,
+		Path:                  "/dashboard",
+		APIPrefix:             "/api/dashboard",
+		RefreshSeconds:        5,
+		RuleManagementEnabled: false,
+		Auth:                  DashboardAuthOptions{Enabled: false},
 	})
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL + "/dashboard")
+	readResp, err := http.Get(srv.URL + "/api/dashboard/rules")
 	require.NoError(t, err)
-	defer resp.Body.Close()
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	assert.Contains(t, string(body), "Prompt Injection Firewall")
+	defer readResp.Body.Close()
+	assert.Equal(t, http.StatusOK, readResp.StatusCode)
 
-	jsResp, err := http.Get(srv.URL + "/dashboard/app.js")
+	postReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+"/api/dashboard/rules", jsonBody(`{"rule":{"id":"X","name":"n","description":"d","category":"prompt_injection","severity":2,"pattern":"x","enabled":true}}`))
 	require.NoError(t, err)
-	defer jsResp.Body.Close()
-	assert.Equal(t, http.StatusOK, jsResp.StatusCode)
-
-	summaryResp, err := http.Get(srv.URL + "/api/dashboard/summary")
+	postReq.Header.Set("Content-Type", "application/json")
+	postResp, err := http.DefaultClient.Do(postReq)
 	require.NoError(t, err)
-	defer summaryResp.Body.Close()
-	assert.Equal(t, http.StatusOK, summaryResp.StatusCode)
-
-	var summary dashboardSummaryResponse
-	require.NoError(t, json.NewDecoder(summaryResp.Body).Decode(&summary))
-	assert.False(t, summary.Config.Dashboard.AuthEnabled)
-	assert.Equal(t, "/dashboard", summary.Config.Dashboard.Path)
-	assert.Equal(t, "/api/dashboard", summary.Config.Dashboard.APIPrefix)
-
-	rulesResp, err := http.Get(srv.URL + "/api/dashboard/rules")
-	require.NoError(t, err)
-	defer rulesResp.Body.Close()
-	assert.Equal(t, http.StatusOK, rulesResp.StatusCode)
-	var rules dashboardRulesResponse
-	require.NoError(t, json.NewDecoder(rulesResp.Body).Decode(&rules))
-	assert.Equal(t, 2, rules.TotalRuleSets)
-	assert.Equal(t, 111, rules.TotalRules)
+	defer postResp.Body.Close()
+	assert.Equal(t, http.StatusNotFound, postResp.StatusCode)
 }
 
-func TestDashboardEnabled_BasicAuth(t *testing.T) {
-	srv := buildDashboardTestServer(t, DashboardOptions{
-		Enabled:        true,
-		Path:           "/dashboard",
-		APIPrefix:      "/api/dashboard",
-		RefreshSeconds: 5,
+func TestDashboardEnabled_RuleManagementEnabledButAuthOff_ReturnsForbiddenOnWrite(t *testing.T) {
+	srv, _ := buildDashboardTestServer(t, DashboardOptions{
+		Enabled:               true,
+		Path:                  "/dashboard",
+		APIPrefix:             "/api/dashboard",
+		RefreshSeconds:        5,
+		RuleManagementEnabled: true,
+		Auth:                  DashboardAuthOptions{Enabled: false},
+	})
+	defer srv.Close()
+
+	postReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+"/api/dashboard/rules", jsonBody(`{"rule":{"id":"X","name":"n","description":"d","category":"prompt_injection","severity":2,"pattern":"x","enabled":true}}`))
+	require.NoError(t, err)
+	postReq.Header.Set("Content-Type", "application/json")
+	postResp, err := http.DefaultClient.Do(postReq)
+	require.NoError(t, err)
+	defer postResp.Body.Close()
+	assert.Equal(t, http.StatusForbidden, postResp.StatusCode)
+}
+
+func TestDashboardEnabled_BasicAuthAndRuleCRUD(t *testing.T) {
+	srv, ruleManager := buildDashboardTestServer(t, DashboardOptions{
+		Enabled:               true,
+		Path:                  "/dashboard",
+		APIPrefix:             "/api/dashboard",
+		RefreshSeconds:        5,
+		RuleManagementEnabled: true,
 		Auth: DashboardAuthOptions{
 			Enabled:  true,
 			Username: "admin",
@@ -154,25 +180,96 @@ func TestDashboardEnabled_BasicAuth(t *testing.T) {
 	})
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL + "/dashboard")
+	noCredResp, err := http.Get(srv.URL + "/api/dashboard/rules")
 	require.NoError(t, err)
-	defer resp.Body.Close()
-	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
-	assert.Contains(t, resp.Header.Get("WWW-Authenticate"), "Basic")
+	defer noCredResp.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, noCredResp.StatusCode)
 
-	wrongReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/api/dashboard/summary", nil)
+	wrongReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+"/api/dashboard/rules", jsonBody(`{"rule":{"id":"CUSTOM-1","name":"c","description":"d","category":"prompt_injection","severity":2,"pattern":"custom_hit","enabled":true}}`))
 	require.NoError(t, err)
+	wrongReq.Header.Set("Content-Type", "application/json")
 	wrongReq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:wrong")))
 	wrongResp, err := http.DefaultClient.Do(wrongReq)
 	require.NoError(t, err)
 	defer wrongResp.Body.Close()
 	assert.Equal(t, http.StatusUnauthorized, wrongResp.StatusCode)
 
-	okReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/api/dashboard/summary", nil)
+	authHeader := "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:secret"))
+
+	preCreateStatus := sendProxyPrompt(t, srv.URL, "custom_hit")
+	assert.Equal(t, http.StatusOK, preCreateStatus)
+
+	createReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+"/api/dashboard/rules", jsonBody(`{"rule":{"id":"CUSTOM-1","name":"c","description":"d","category":"prompt_injection","severity":2,"pattern":"custom_hit","enabled":true}}`))
 	require.NoError(t, err)
-	okReq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:secret")))
-	okResp, err := http.DefaultClient.Do(okReq)
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", authHeader)
+	createResp, err := http.DefaultClient.Do(createReq)
 	require.NoError(t, err)
-	defer okResp.Body.Close()
-	assert.Equal(t, http.StatusOK, okResp.StatusCode)
+	defer createResp.Body.Close()
+	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+
+	postCreateStatus := sendProxyPrompt(t, srv.URL, "custom_hit")
+	assert.Equal(t, http.StatusForbidden, postCreateStatus)
+
+	updateReq, err := http.NewRequestWithContext(context.Background(), http.MethodPut, srv.URL+"/api/dashboard/rules/CUSTOM-1", jsonBody(`{"rule":{"name":"c2","description":"d2","category":"prompt_injection","severity":3,"pattern":"custom_hit_v2","enabled":true}}`))
+	require.NoError(t, err)
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateReq.Header.Set("Authorization", authHeader)
+	updateResp, err := http.DefaultClient.Do(updateReq)
+	require.NoError(t, err)
+	defer updateResp.Body.Close()
+	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
+
+	postUpdateOldPattern := sendProxyPrompt(t, srv.URL, "custom_hit")
+	assert.Equal(t, http.StatusOK, postUpdateOldPattern)
+	postUpdateNewPattern := sendProxyPrompt(t, srv.URL, "custom_hit_v2")
+	assert.Equal(t, http.StatusForbidden, postUpdateNewPattern)
+
+	deleteReq, err := http.NewRequestWithContext(context.Background(), http.MethodDelete, srv.URL+"/api/dashboard/rules/CUSTOM-1", nil)
+	require.NoError(t, err)
+	deleteReq.Header.Set("Authorization", authHeader)
+	deleteResp, err := http.DefaultClient.Do(deleteReq)
+	require.NoError(t, err)
+	defer deleteResp.Body.Close()
+	assert.Equal(t, http.StatusOK, deleteResp.StatusCode)
+
+	postDeleteStatus := sendProxyPrompt(t, srv.URL, "custom_hit_v2")
+	assert.Equal(t, http.StatusOK, postDeleteStatus)
+
+	summaryReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/api/dashboard/summary", nil)
+	require.NoError(t, err)
+	summaryReq.Header.Set("Authorization", authHeader)
+	summaryResp, err := http.DefaultClient.Do(summaryReq)
+	require.NoError(t, err)
+	defer summaryResp.Body.Close()
+	assert.Equal(t, http.StatusOK, summaryResp.StatusCode)
+
+	var summary dashboardSummaryResponse
+	require.NoError(t, json.NewDecoder(summaryResp.Body).Decode(&summary))
+	assert.True(t, summary.Config.Dashboard.AuthEnabled)
+	assert.True(t, summary.Config.Dashboard.RuleManagementEnabled)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	scan, err := ruleManager.Detector().Scan(ctx, detector.ScanInput{Text: "custom_hit_v2"})
+	require.NoError(t, err)
+	assert.True(t, scan.Clean)
+}
+
+func jsonBody(body string) *strings.Reader {
+	return strings.NewReader(body)
+}
+
+func sendProxyPrompt(t *testing.T, baseURL, content string) int {
+	t.Helper()
+
+	payload := fmt.Sprintf(`{"model":"gpt-4","messages":[{"role":"user","content":"%s"}]}`, content)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, baseURL+"/v1/chat/completions", strings.NewReader(payload))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	return resp.StatusCode
 }

@@ -7,8 +7,19 @@ const historyState = {
   maxPoints: 60,
 };
 
+const appState = {
+  editingRuleID: "",
+  latestRules: [],
+  ruleManagement: {
+    enabled: false,
+    writable: false,
+    managedPath: "",
+  },
+};
+
 const statusPill = document.getElementById("status-pill");
 const refreshPill = document.getElementById("refresh-pill");
+const writePill = document.getElementById("write-pill");
 
 const fields = {
   totalRequests: document.getElementById("total-requests"),
@@ -18,17 +29,33 @@ const fields = {
   lastRefresh: document.getElementById("last-refresh"),
 };
 
+const ruleForm = document.getElementById("rule-form");
+const managedRulesBody = document.getElementById("managed-rules-body");
+const managedPathText = document.getElementById("managed-path");
+const ruleWriteNote = document.getElementById("rule-write-note");
+const ruleSaveBtn = document.getElementById("rule-save-btn");
+const ruleClearBtn = document.getElementById("rule-clear-btn");
+
 refreshPill.textContent = `Refresh: ${refreshSeconds}s`;
 
-async function fetchJSON(path) {
+async function fetchJSON(path, options = {}) {
   const response = await fetch(path, {
     headers: {
       Accept: "application/json",
+      ...(options.headers || {}),
     },
+    ...options,
   });
+
   if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}`);
+    const text = await response.text();
+    throw new Error(text || `${response.status} ${response.statusText}`);
   }
+
+  if (response.status === 204) {
+    return null;
+  }
+
   return response.json();
 }
 
@@ -100,6 +127,31 @@ function renderRules(ruleSets) {
     .join("");
 }
 
+function renderManagedRules(rules) {
+  if (!managedRulesBody) return;
+
+  if (!Array.isArray(rules) || rules.length === 0) {
+    managedRulesBody.innerHTML = `<tr><td colspan="5">No managed custom rules.</td></tr>`;
+    return;
+  }
+
+  managedRulesBody.innerHTML = rules
+    .map((rule) => {
+      const safeID = escapeHtml(rule.id || "-");
+      return `<tr>
+        <td>${safeID}</td>
+        <td>${escapeHtml(rule.category || "-")}</td>
+        <td>${Number(rule.severity || 0)}</td>
+        <td>${rule.enabled ? "yes" : "no"}</td>
+        <td>
+          <button type="button" data-action="edit" data-id="${safeID}">Edit</button>
+          <button type="button" class="danger" data-action="delete" data-id="${safeID}">Delete</button>
+        </td>
+      </tr>`;
+    })
+    .join("");
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -117,6 +169,149 @@ function setHealthyStatus(text) {
 function setErrorStatus(text) {
   statusPill.textContent = text;
   statusPill.classList.add("error");
+}
+
+function updateRuleManagementStatus(ruleResponse) {
+  const status = ruleResponse?.rule_management || {};
+  appState.ruleManagement = {
+    enabled: Boolean(status.enabled),
+    writable: Boolean(status.writable),
+    managedPath: status.managed_path || "-",
+  };
+  appState.latestRules = Array.isArray(ruleResponse?.managed_rules) ? ruleResponse.managed_rules : [];
+
+  const { enabled, writable, managedPath } = appState.ruleManagement;
+  managedPathText.textContent = `Path: ${managedPath}`;
+
+  if (!enabled) {
+    writePill.textContent = "Rule write: disabled";
+    ruleWriteNote.textContent = "Rule management feature is disabled in config.";
+  } else if (!writable) {
+    writePill.textContent = "Rule write: forbidden";
+    ruleWriteNote.textContent = "Rule management requires dashboard auth (enabled + valid Basic Auth).";
+  } else {
+    writePill.textContent = "Rule write: enabled";
+    ruleWriteNote.textContent = "Custom rules are writable. Changes apply immediately after save.";
+  }
+
+  const canWrite = enabled && writable;
+  for (const element of ruleForm.elements) {
+    element.disabled = !canWrite;
+  }
+}
+
+function setFormMode(id) {
+  appState.editingRuleID = id || "";
+  ruleSaveBtn.textContent = appState.editingRuleID ? "Update Rule" : "Create Rule";
+}
+
+function resetRuleForm() {
+  ruleForm.reset();
+  document.getElementById("rule-severity").value = "2";
+  document.getElementById("rule-enabled").checked = true;
+  setFormMode("");
+}
+
+function fillRuleForm(rule) {
+  document.getElementById("rule-id").value = rule.id || "";
+  document.getElementById("rule-name").value = rule.name || "";
+  document.getElementById("rule-category").value = rule.category || "";
+  document.getElementById("rule-severity").value = String(Number(rule.severity || 0));
+  document.getElementById("rule-pattern").value = rule.pattern || "";
+  document.getElementById("rule-description").value = rule.description || "";
+  document.getElementById("rule-enabled").checked = Boolean(rule.enabled);
+  setFormMode(rule.id || "");
+}
+
+function buildRuleFromForm() {
+  return {
+    id: document.getElementById("rule-id").value.trim(),
+    name: document.getElementById("rule-name").value.trim(),
+    category: document.getElementById("rule-category").value.trim(),
+    severity: Number(document.getElementById("rule-severity").value),
+    pattern: document.getElementById("rule-pattern").value,
+    description: document.getElementById("rule-description").value.trim(),
+    enabled: Boolean(document.getElementById("rule-enabled").checked),
+    case_sensitive: false,
+    tags: [],
+    metadata: {},
+  };
+}
+
+async function submitRuleForm(event) {
+  event.preventDefault();
+  if (!appState.ruleManagement.enabled || !appState.ruleManagement.writable) {
+    setErrorStatus("Rule write is not allowed in current dashboard configuration");
+    return;
+  }
+
+  try {
+    const rule = buildRuleFromForm();
+    if (!rule.id) {
+      throw new Error("rule id is required");
+    }
+
+    if (appState.editingRuleID) {
+      await fetchJSON(`${apiPrefix}/rules/${encodeURIComponent(appState.editingRuleID)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rule }),
+      });
+    } else {
+      await fetchJSON(`${apiPrefix}/rules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rule }),
+      });
+    }
+
+    resetRuleForm();
+    await refreshDashboard();
+  } catch (error) {
+    setErrorStatus(`Degraded: ${error.message}`);
+  }
+}
+
+async function onManagedRuleAction(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  const action = target.dataset.action;
+  const id = target.dataset.id;
+  if (!action || !id) {
+    return;
+  }
+
+  const selected = appState.latestRules.find((r) => r.id === id);
+  if (!selected) {
+    return;
+  }
+
+  if (action === "edit") {
+    fillRuleForm(selected);
+    return;
+  }
+
+  if (action === "delete") {
+    if (!appState.ruleManagement.enabled || !appState.ruleManagement.writable) {
+      setErrorStatus("Rule delete is not allowed in current dashboard configuration");
+      return;
+    }
+
+    try {
+      await fetchJSON(`${apiPrefix}/rules/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (appState.editingRuleID === id) {
+        resetRuleForm();
+      }
+      await refreshDashboard();
+    } catch (error) {
+      setErrorStatus(`Degraded: ${error.message}`);
+    }
+  }
 }
 
 async function refreshDashboard() {
@@ -140,6 +335,8 @@ async function refreshDashboard() {
     drawLineChart("requests-chart", historyState.requests, "#007c6f");
     drawLineChart("detections-chart", historyState.detections, "#cc5300");
     renderRules(rules?.rule_sets || []);
+    updateRuleManagementStatus(rules || {});
+    renderManagedRules(rules?.managed_rules || []);
 
     setHealthyStatus(`Live - uptime ${Math.max(0, Number(summary?.uptime_seconds || 0))}s`);
   } catch (error) {
@@ -147,5 +344,10 @@ async function refreshDashboard() {
   }
 }
 
+ruleForm.addEventListener("submit", submitRuleForm);
+ruleClearBtn.addEventListener("click", () => resetRuleForm());
+managedRulesBody.addEventListener("click", onManagedRuleAction);
+
+resetRuleForm();
 refreshDashboard();
 window.setInterval(refreshDashboard, Math.max(1, refreshSeconds) * 1000);

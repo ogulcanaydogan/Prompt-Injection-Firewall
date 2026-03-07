@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -68,15 +67,8 @@ func runProxy(cmd *cobra.Command, args []string) error {
 		action = proxyAction
 	}
 
-	// If proxy has --model, propagate to scan's model var for buildDetector().
-	// Otherwise, use config-provided model path.
-	if proxyModel != "" {
-		scanModel = proxyModel
-	} else {
-		scanModel = cfg.Detector.MLModelPath
-	}
+	modelPath := resolveProxyModelPath(cfg)
 
-	// If proxy has --model, propagate to scan's model var for buildDetector()
 	readTimeout, err := time.ParseDuration(cfg.Proxy.ReadTimeout)
 	if err != nil {
 		return fmt.Errorf("parsing proxy.read_timeout: %w", err)
@@ -87,13 +79,26 @@ func runProxy(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("parsing proxy.write_timeout: %w", err)
 	}
 
-	d, err := buildDetector()
+	detectorFactory := buildProxyDetectorFactory(cfg, modelPath)
+	ruleManager, err := proxy.NewRuntimeRuleManager(proxy.RuntimeRuleManagerOptions{
+		RulePaths:       cfg.Rules.Paths,
+		CustomPaths:     cfg.Rules.CustomPaths,
+		DetectorFactory: detectorFactory,
+	})
 	if err != nil {
-		return fmt.Errorf("building detector: %w", err)
+		return fmt.Errorf("initializing runtime rule manager: %w", err)
 	}
 
-	ensemble := d.(*detector.EnsembleDetector)
+	currentDetector := ruleManager.CurrentDetector()
+	if currentDetector == nil {
+		return fmt.Errorf("runtime detector not initialized")
+	}
+	ensemble, ok := currentDetector.(*detector.EnsembleDetector)
+	if !ok {
+		return fmt.Errorf("unexpected detector type: %T", currentDetector)
+	}
 
+	ruleSnapshot := ruleManager.Snapshot()
 	mlStatus := "disabled"
 	if ensemble.HasMLDetector() {
 		mlStatus = "enabled"
@@ -103,12 +108,10 @@ func runProxy(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(cmd.OutOrStdout(), "  Target:     %s\n", target)
 	fmt.Fprintf(cmd.OutOrStdout(), "  Listen:     %s\n", listen)
 	fmt.Fprintf(cmd.OutOrStdout(), "  Action:     %s\n", action)
-	fmt.Fprintf(cmd.OutOrStdout(), "  Rules:      %d loaded\n", ensemble.RuleCount())
+	fmt.Fprintf(cmd.OutOrStdout(), "  Rules:      %d loaded\n", ruleSnapshot.TotalRules)
 	fmt.Fprintf(cmd.OutOrStdout(), "  ML:         %s\n", mlStatus)
 	fmt.Fprintf(cmd.OutOrStdout(), "  Detectors:  %d\n", ensemble.DetectorCount())
 	fmt.Fprintf(cmd.OutOrStdout(), "  Threshold:  %.2f\n", cfg.Detector.Threshold)
-
-	ruleInventory := loadRuleInventory(cfg)
 
 	return proxy.StartServer(proxy.ServerOptions{
 		TargetURL:    target,
@@ -130,62 +133,72 @@ func runProxy(cmd *cobra.Command, args []string) error {
 			EWMAAlpha:    cfg.Detector.AdaptiveThreshold.EWMAAlpha,
 		},
 		Dashboard: proxy.DashboardOptions{
-			Enabled:        cfg.Dashboard.Enabled,
-			Path:           cfg.Dashboard.Path,
-			APIPrefix:      cfg.Dashboard.APIPrefix,
-			RefreshSeconds: cfg.Dashboard.RefreshSeconds,
+			Enabled:               cfg.Dashboard.Enabled,
+			Path:                  cfg.Dashboard.Path,
+			APIPrefix:             cfg.Dashboard.APIPrefix,
+			RefreshSeconds:        cfg.Dashboard.RefreshSeconds,
+			RuleManagementEnabled: cfg.Dashboard.RuleManagement.Enabled,
 			Auth: proxy.DashboardAuthOptions{
 				Enabled:  cfg.Dashboard.Auth.Enabled,
 				Username: cfg.Dashboard.Auth.Username,
 				Password: cfg.Dashboard.Auth.Password,
 			},
 		},
-		RuleInventory: ruleInventory,
-	}, d)
+		RuleInventory: ruleSnapshot.RuleSets,
+		RuleManager:   ruleManager,
+	}, ruleManager.Detector())
 }
 
-func loadRuleInventory(cfg *config.Config) []proxy.RuleSetInfo {
-	paths := append([]string{}, cfg.Rules.Paths...)
-	paths = append(paths, cfg.Rules.CustomPaths...)
+func resolveProxyModelPath(cfg *config.Config) string {
+	if proxyModel != "" {
+		scanModel = proxyModel
+		return proxyModel
+	}
+	if cfg.Detector.MLModelPath != "" {
+		scanModel = cfg.Detector.MLModelPath
+		return cfg.Detector.MLModelPath
+	}
+	return ""
+}
 
-	inventory := make([]proxy.RuleSetInfo, 0, len(paths))
-	for _, p := range paths {
-		rs, err := loadRuleSetWithFallback(p)
+func buildProxyDetectorFactory(cfg *config.Config, modelPath string) proxy.DetectorFactory {
+	strategy := detector.ParseStrategy(cfg.Detector.Strategy)
+	timeout := time.Duration(cfg.Detector.TimeoutMs) * time.Millisecond
+	if timeout <= 0 {
+		timeout = 100 * time.Millisecond
+	}
+	regexWeight := cfg.Detector.Weights.Regex
+	if regexWeight <= 0 {
+		regexWeight = 1.0
+	}
+	mlWeight := cfg.Detector.Weights.ML
+	if mlWeight <= 0 {
+		mlWeight = 0.4
+	}
+	mlThreshold := cfg.Detector.MLThreshold
+	if mlThreshold <= 0 {
+		mlThreshold = 0.85
+	}
+
+	return func(ruleSets []rules.RuleSet) (detector.Detector, error) {
+		regexDetector, err := detector.NewRegexDetector(ruleSets...)
 		if err != nil {
-			continue
+			return nil, err
 		}
 
-		enabledRules := 0
-		for _, r := range rs.Rules {
-			if r.Enabled {
-				enabledRules++
+		ensemble := detector.NewEnsemble(strategy, timeout)
+		ensemble.Register(regexDetector, regexWeight)
+
+		if modelPath != "" {
+			mlDetector, mlErr := detector.NewMLDetector(detector.MLConfig{
+				ModelPath: modelPath,
+				Threshold: mlThreshold,
+			})
+			if mlErr == nil {
+				ensemble.Register(mlDetector, mlWeight)
 			}
 		}
 
-		inventory = append(inventory, proxy.RuleSetInfo{
-			Name:      rs.Name,
-			Version:   rs.Version,
-			RuleCount: enabledRules,
-		})
+		return ensemble, nil
 	}
-
-	return inventory
-}
-
-func loadRuleSetWithFallback(path string) (*rules.RuleSet, error) {
-	candidates := []string{path}
-	if !filepath.IsAbs(path) {
-		candidates = append(candidates, filepath.Join("/etc/pif", path))
-	}
-
-	var lastErr error
-	for _, candidate := range candidates {
-		rs, err := rules.LoadFile(candidate)
-		if err == nil {
-			return rs, nil
-		}
-		lastErr = err
-	}
-
-	return nil, lastErr
 }

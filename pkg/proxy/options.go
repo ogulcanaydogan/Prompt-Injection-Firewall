@@ -34,11 +34,12 @@ type DashboardAuthOptions struct {
 
 // DashboardOptions configures embedded dashboard behavior.
 type DashboardOptions struct {
-	Enabled        bool
-	Path           string
-	APIPrefix      string
-	RefreshSeconds int
-	Auth           DashboardAuthOptions
+	Enabled               bool
+	Path                  string
+	APIPrefix             string
+	RefreshSeconds        int
+	Auth                  DashboardAuthOptions
+	RuleManagementEnabled bool
 }
 
 // RuleSetInfo represents dashboard-facing rule inventory metadata.
@@ -75,4 +76,5 @@ type ServerOptions struct {
 	Metrics           *Metrics
 	Dashboard         DashboardOptions
 	RuleInventory     []RuleSetInfo
+	RuleManager       RuleManager
 }

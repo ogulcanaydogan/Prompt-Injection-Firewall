@@ -36,7 +36,7 @@ Core metric names:
 
 ### Embedded Dashboard (Optional)
 
-When `dashboard.enabled=true`, PIF exposes a read-only dashboard:
+When `dashboard.enabled=true`, PIF exposes a monitoring dashboard:
 
 ```
 GET /dashboard
@@ -48,7 +48,7 @@ GET /api/dashboard/rules
 - `GET /dashboard` serves embedded HTML/CSS/JS.
 - `GET /api/dashboard/summary` returns high-level counters, uptime, p95 scan latency, and a safe runtime config snapshot.
 - `GET /api/dashboard/metrics` returns normalized JSON metrics for UI polling (totals, label breakdowns, quantiles).
-- `GET /api/dashboard/rules` returns loaded rule set metadata (name/version/rule_count).
+- `GET /api/dashboard/rules` returns loaded rule set metadata plus managed custom rules.
 
 If `dashboard.auth.enabled=true`, both UI and dashboard API endpoints require Basic Auth and return:
 
@@ -56,6 +56,48 @@ If `dashboard.auth.enabled=true`, both UI and dashboard API endpoints require Ba
 HTTP/1.1 401 Unauthorized
 WWW-Authenticate: Basic realm="pif-dashboard"
 ```
+
+### Dashboard Rule Management (Optional)
+
+When `dashboard.rule_management.enabled=true`, write APIs are exposed under the dashboard rules endpoint:
+
+```
+POST   /api/dashboard/rules
+PUT    /api/dashboard/rules/{id}
+DELETE /api/dashboard/rules/{id}
+```
+
+Write policy:
+
+- `dashboard.enabled=false` -> all dashboard routes return `404`.
+- `dashboard.rule_management.enabled=false` -> write routes return `404`.
+- `dashboard.rule_management.enabled=true` and `dashboard.auth.enabled=false` -> write routes return `403`.
+- `dashboard.rule_management.enabled=true` and valid Basic Auth -> writes allowed.
+
+Payload format (`POST` and `PUT`):
+
+```json
+{
+  "rule": {
+    "id": "PIF-CUSTOM-001",
+    "name": "Custom Rule",
+    "description": "Detects tenant-specific injection pattern",
+    "category": "prompt_injection",
+    "severity": 2,
+    "pattern": "(?i)custom_attack_pattern",
+    "enabled": true,
+    "case_sensitive": false,
+    "tags": [],
+    "metadata": {}
+  }
+}
+```
+
+Notes:
+
+- `severity` is integer `0..4` (`info..critical`).
+- Built-in OWASP/jailbreak/data-exfil files are not edited via dashboard.
+- Dashboard writes only to managed custom rules and applies changes with hot reload.
 
 ### Proxy (All Other Paths)
 

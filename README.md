@@ -110,7 +110,7 @@ PIF addresses this critical gap by providing a **transparent, low-latency detect
 - **Environment variable overrides** (`PIF_*` prefix)
 - **Health check endpoint** (`/healthz`)
 - **Prometheus metrics endpoint** (`/metrics`)
-- **Embedded monitoring dashboard** (`/dashboard`, optional)
+- **Embedded monitoring dashboard + custom rule management** (`/dashboard`, optional)
 - **golangci-lint** and race-condition-tested CI
 
 </td>
@@ -509,7 +509,7 @@ webhook:
   tls_key_file: "/etc/pif/webhook/tls.key"
   pif_host_pattern: "(?i)pif-proxy"
 
-# Embedded read-only dashboard settings
+# Embedded dashboard settings
 dashboard:
   enabled: false                        # Disabled by default
   path: "/dashboard"                    # Dashboard UI path
@@ -519,6 +519,13 @@ dashboard:
     enabled: false                      # Optional Basic Auth
     username: ""                        # Set in env for production
     password: ""                        # Set in env for production
+  rule_management:
+    enabled: false                      # Enable write/edit/delete custom rules API
+
+# Note:
+# - Dashboard write APIs are only active when rule_management.enabled=true
+#   and dashboard.auth.enabled=true.
+# - Built-in rule files remain read-only; dashboard mutates only managed custom rules.
 
 # Rule file paths
 rules:
@@ -554,6 +561,7 @@ PIF_DASHBOARD_ENABLED=true
 PIF_DASHBOARD_AUTH_ENABLED=true
 PIF_DASHBOARD_AUTH_USERNAME=ops
 PIF_DASHBOARD_AUTH_PASSWORD=change-me
+PIF_DASHBOARD_RULE_MANAGEMENT_ENABLED=true
 PIF_LOGGING_LEVEL=debug
 ```
 
@@ -695,7 +703,7 @@ Automated quality gates on every push and pull request:
 ### Phase 3 -- Platform Features
 
 - [x] Web-based read-only dashboard UI for monitoring (MVP)
-- [ ] Dashboard rule management (write/edit workflows)
+- [x] Dashboard rule management (write/edit workflows)
 - [ ] Real-time alerting (Slack, PagerDuty, webhooks)
 - [ ] Multi-tenant support with per-tenant policies
 - [ ] Attack replay and forensic analysis tools

@@ -33,6 +33,7 @@ func TestDefault(t *testing.T) {
 	assert.Equal(t, "/api/dashboard", cfg.Dashboard.APIPrefix)
 	assert.Equal(t, 5, cfg.Dashboard.RefreshSeconds)
 	assert.False(t, cfg.Dashboard.Auth.Enabled)
+	assert.False(t, cfg.Dashboard.RuleManagement.Enabled)
 	assert.Equal(t, ":8443", cfg.Webhook.Listen)
 	assert.Equal(t, `(?i)pif-proxy`, cfg.Webhook.PIFHostPattern)
 	assert.Equal(t, "info", cfg.Logging.Level)
@@ -76,6 +77,7 @@ func TestLoad_EnvOverride(t *testing.T) {
 	t.Setenv("PIF_DASHBOARD_AUTH_ENABLED", "true")
 	t.Setenv("PIF_DASHBOARD_AUTH_USERNAME", "admin")
 	t.Setenv("PIF_DASHBOARD_AUTH_PASSWORD", "secret")
+	t.Setenv("PIF_DASHBOARD_RULE_MANAGEMENT_ENABLED", "true")
 
 	cfg, err := Load("")
 	require.NoError(t, err)
@@ -87,6 +89,7 @@ func TestLoad_EnvOverride(t *testing.T) {
 	assert.True(t, cfg.Dashboard.Auth.Enabled)
 	assert.Equal(t, "admin", cfg.Dashboard.Auth.Username)
 	assert.Equal(t, "secret", cfg.Dashboard.Auth.Password)
+	assert.True(t, cfg.Dashboard.RuleManagement.Enabled)
 }
 
 func TestLoad_MLEnvOverride(t *testing.T) {
@@ -126,6 +129,8 @@ dashboard:
     enabled: true
     username: "ops"
     password: "pass"
+  rule_management:
+    enabled: true
 webhook:
   pif_host_pattern: "(?i)my-pif"
 `
@@ -152,6 +157,7 @@ webhook:
 	assert.True(t, cfg.Dashboard.Auth.Enabled)
 	assert.Equal(t, "ops", cfg.Dashboard.Auth.Username)
 	assert.Equal(t, "pass", cfg.Dashboard.Auth.Password)
+	assert.True(t, cfg.Dashboard.RuleManagement.Enabled)
 	assert.False(t, cfg.Detector.AdaptiveThreshold.Enabled)
 	assert.Equal(t, 0.4, cfg.Detector.AdaptiveThreshold.MinThreshold)
 	assert.Equal(t, 0.1, cfg.Detector.AdaptiveThreshold.EWMAAlpha)

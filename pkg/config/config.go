@@ -64,17 +64,22 @@ type AdaptiveThresholdConfig struct {
 }
 
 type DashboardConfig struct {
-	Enabled        bool                `mapstructure:"enabled"`
-	Path           string              `mapstructure:"path"`
-	APIPrefix      string              `mapstructure:"api_prefix"`
-	RefreshSeconds int                 `mapstructure:"refresh_seconds"`
-	Auth           DashboardAuthConfig `mapstructure:"auth"`
+	Enabled        bool                          `mapstructure:"enabled"`
+	Path           string                        `mapstructure:"path"`
+	APIPrefix      string                        `mapstructure:"api_prefix"`
+	RefreshSeconds int                           `mapstructure:"refresh_seconds"`
+	Auth           DashboardAuthConfig           `mapstructure:"auth"`
+	RuleManagement DashboardRuleManagementConfig `mapstructure:"rule_management"`
 }
 
 type DashboardAuthConfig struct {
 	Enabled  bool   `mapstructure:"enabled"`
 	Username string `mapstructure:"username"`
 	Password string `mapstructure:"password"`
+}
+
+type DashboardRuleManagementConfig struct {
+	Enabled bool `mapstructure:"enabled"`
 }
 
 type WebhookConfig struct {
@@ -147,6 +152,9 @@ func Default() *Config {
 				Username: "",
 				Password: "",
 			},
+			RuleManagement: DashboardRuleManagementConfig{
+				Enabled: false,
+			},
 		},
 		Webhook: WebhookConfig{
 			Listen:         ":8443",
@@ -199,6 +207,7 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("dashboard.auth.enabled", defaults.Dashboard.Auth.Enabled)
 	v.SetDefault("dashboard.auth.username", defaults.Dashboard.Auth.Username)
 	v.SetDefault("dashboard.auth.password", defaults.Dashboard.Auth.Password)
+	v.SetDefault("dashboard.rule_management.enabled", defaults.Dashboard.RuleManagement.Enabled)
 	v.SetDefault("webhook.listen", defaults.Webhook.Listen)
 	v.SetDefault("webhook.tls_cert_file", defaults.Webhook.TLSCertFile)
 	v.SetDefault("webhook.tls_key_file", defaults.Webhook.TLSKeyFile)

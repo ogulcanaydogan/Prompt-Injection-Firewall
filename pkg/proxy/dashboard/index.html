@@ -10,10 +10,11 @@
   <main class="layout">
     <header class="hero">
       <h1>Prompt Injection Firewall</h1>
-      <p>Read-only monitoring dashboard</p>
+      <p>Monitoring and custom rule management dashboard</p>
       <div class="meta">
         <span id="status-pill">Connecting...</span>
         <span id="refresh-pill">Refresh: __REFRESH_SECONDS__s</span>
+        <span id="write-pill">Rule write: unknown</span>
       </div>
     </header>
 
@@ -62,6 +63,65 @@
           <tbody id="rules-body">
             <tr>
               <td colspan="3">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+      <article class="panel">
+        <div class="panel-head">
+          <h3>Managed Custom Rules</h3>
+          <p id="managed-path">Path: -</p>
+        </div>
+        <p id="rule-write-note" class="note">Rule management status loading...</p>
+
+        <form id="rule-form" class="rule-form">
+          <div class="form-row">
+            <label for="rule-id">ID</label>
+            <input id="rule-id" name="id" type="text" placeholder="PIF-CUSTOM-001" required>
+          </div>
+          <div class="form-row">
+            <label for="rule-name">Name</label>
+            <input id="rule-name" name="name" type="text" placeholder="Custom Detection Rule" required>
+          </div>
+          <div class="form-row">
+            <label for="rule-category">Category</label>
+            <input id="rule-category" name="category" type="text" placeholder="prompt_injection" required>
+          </div>
+          <div class="form-row">
+            <label for="rule-severity">Severity (0-4)</label>
+            <input id="rule-severity" name="severity" type="number" min="0" max="4" value="2" required>
+          </div>
+          <div class="form-row form-wide">
+            <label for="rule-pattern">Pattern (regex)</label>
+            <input id="rule-pattern" name="pattern" type="text" placeholder="(?i)ignore all previous instructions" required>
+          </div>
+          <div class="form-row form-wide">
+            <label for="rule-description">Description</label>
+            <input id="rule-description" name="description" type="text" placeholder="Detects custom prompt injection phrase" required>
+          </div>
+          <div class="form-row checkbox-row">
+            <label for="rule-enabled">Enabled</label>
+            <input id="rule-enabled" name="enabled" type="checkbox" checked>
+          </div>
+          <div class="form-actions">
+            <button id="rule-save-btn" type="submit">Create Rule</button>
+            <button id="rule-clear-btn" type="button" class="ghost">Clear</button>
+          </div>
+        </form>
+
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Category</th>
+              <th>Severity</th>
+              <th>Enabled</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="managed-rules-body">
+            <tr>
+              <td colspan="5">Loading...</td>
             </tr>
           </tbody>
         </table>
