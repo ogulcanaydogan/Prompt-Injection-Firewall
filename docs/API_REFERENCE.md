@@ -34,6 +34,29 @@ Core metric names:
 - `pif_detection_score`
 - `pif_rate_limit_events_total`
 
+### Embedded Dashboard (Optional)
+
+When `dashboard.enabled=true`, PIF exposes a read-only dashboard:
+
+```
+GET /dashboard
+GET /api/dashboard/summary
+GET /api/dashboard/metrics
+GET /api/dashboard/rules
+```
+
+- `GET /dashboard` serves embedded HTML/CSS/JS.
+- `GET /api/dashboard/summary` returns high-level counters, uptime, p95 scan latency, and a safe runtime config snapshot.
+- `GET /api/dashboard/metrics` returns normalized JSON metrics for UI polling (totals, label breakdowns, quantiles).
+- `GET /api/dashboard/rules` returns loaded rule set metadata (name/version/rule_count).
+
+If `dashboard.auth.enabled=true`, both UI and dashboard API endpoints require Basic Auth and return:
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Basic realm="pif-dashboard"
+```
+
 ### Proxy (All Other Paths)
 
 ```

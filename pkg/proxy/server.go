@@ -63,6 +63,13 @@ func StartServer(opts ServerOptions, d detector.Detector) error {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 	mux.Handle("GET /metrics", opts.Metrics.Handler())
+
+	if opts.Dashboard.Enabled {
+		registerDashboardRoutes(mux, opts)
+	} else {
+		registerDashboardNotFoundRoutes(mux, opts.Dashboard.Path, opts.Dashboard.APIPrefix)
+	}
+
 	mux.Handle("/", handler)
 
 	server := &http.Server{

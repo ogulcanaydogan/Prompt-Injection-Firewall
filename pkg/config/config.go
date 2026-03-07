@@ -12,6 +12,7 @@ type Config struct {
 	Detector  DetectorConfig  `mapstructure:"detector"`
 	Rules     RulesConfig     `mapstructure:"rules"`
 	Proxy     ProxyConfig     `mapstructure:"proxy"`
+	Dashboard DashboardConfig `mapstructure:"dashboard"`
 	Webhook   WebhookConfig   `mapstructure:"webhook"`
 	Allowlist AllowlistConfig `mapstructure:"allowlist"`
 	Logging   LoggingConfig   `mapstructure:"logging"`
@@ -60,6 +61,20 @@ type AdaptiveThresholdConfig struct {
 	Enabled      bool    `mapstructure:"enabled"`
 	MinThreshold float64 `mapstructure:"min_threshold"`
 	EWMAAlpha    float64 `mapstructure:"ewma_alpha"`
+}
+
+type DashboardConfig struct {
+	Enabled        bool                `mapstructure:"enabled"`
+	Path           string              `mapstructure:"path"`
+	APIPrefix      string              `mapstructure:"api_prefix"`
+	RefreshSeconds int                 `mapstructure:"refresh_seconds"`
+	Auth           DashboardAuthConfig `mapstructure:"auth"`
+}
+
+type DashboardAuthConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
 }
 
 type WebhookConfig struct {
@@ -122,6 +137,17 @@ func Default() *Config {
 				KeyHeader:         "X-Forwarded-For",
 			},
 		},
+		Dashboard: DashboardConfig{
+			Enabled:        false,
+			Path:           "/dashboard",
+			APIPrefix:      "/api/dashboard",
+			RefreshSeconds: 5,
+			Auth: DashboardAuthConfig{
+				Enabled:  false,
+				Username: "",
+				Password: "",
+			},
+		},
 		Webhook: WebhookConfig{
 			Listen:         ":8443",
 			TLSCertFile:    "/etc/pif/webhook/tls.crt",
@@ -166,6 +192,13 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("proxy.rate_limit.requests_per_minute", defaults.Proxy.RateLimit.RequestsPerMinute)
 	v.SetDefault("proxy.rate_limit.burst", defaults.Proxy.RateLimit.Burst)
 	v.SetDefault("proxy.rate_limit.key_header", defaults.Proxy.RateLimit.KeyHeader)
+	v.SetDefault("dashboard.enabled", defaults.Dashboard.Enabled)
+	v.SetDefault("dashboard.path", defaults.Dashboard.Path)
+	v.SetDefault("dashboard.api_prefix", defaults.Dashboard.APIPrefix)
+	v.SetDefault("dashboard.refresh_seconds", defaults.Dashboard.RefreshSeconds)
+	v.SetDefault("dashboard.auth.enabled", defaults.Dashboard.Auth.Enabled)
+	v.SetDefault("dashboard.auth.username", defaults.Dashboard.Auth.Username)
+	v.SetDefault("dashboard.auth.password", defaults.Dashboard.Auth.Password)
 	v.SetDefault("webhook.listen", defaults.Webhook.Listen)
 	v.SetDefault("webhook.tls_cert_file", defaults.Webhook.TLSCertFile)
 	v.SetDefault("webhook.tls_key_file", defaults.Webhook.TLSKeyFile)

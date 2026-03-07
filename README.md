@@ -110,6 +110,7 @@ PIF addresses this critical gap by providing a **transparent, low-latency detect
 - **Environment variable overrides** (`PIF_*` prefix)
 - **Health check endpoint** (`/healthz`)
 - **Prometheus metrics endpoint** (`/metrics`)
+- **Embedded monitoring dashboard** (`/dashboard`, optional)
 - **golangci-lint** and race-condition-tested CI
 
 </td>
@@ -508,6 +509,17 @@ webhook:
   tls_key_file: "/etc/pif/webhook/tls.key"
   pif_host_pattern: "(?i)pif-proxy"
 
+# Embedded read-only dashboard settings
+dashboard:
+  enabled: false                        # Disabled by default
+  path: "/dashboard"                    # Dashboard UI path
+  api_prefix: "/api/dashboard"          # Dashboard JSON API prefix
+  refresh_seconds: 5                    # UI polling interval
+  auth:
+    enabled: false                      # Optional Basic Auth
+    username: ""                        # Set in env for production
+    password: ""                        # Set in env for production
+
 # Rule file paths
 rules:
   paths:
@@ -538,6 +550,10 @@ PIF_PROXY_TARGET=https://api.anthropic.com
 PIF_PROXY_ACTION=flag
 PIF_PROXY_RATE_LIMIT_REQUESTS_PER_MINUTE=200
 PIF_DETECTOR_ADAPTIVE_THRESHOLD_EWMA_ALPHA=0.3
+PIF_DASHBOARD_ENABLED=true
+PIF_DASHBOARD_AUTH_ENABLED=true
+PIF_DASHBOARD_AUTH_USERNAME=ops
+PIF_DASHBOARD_AUTH_PASSWORD=change-me
 PIF_LOGGING_LEVEL=debug
 ```
 
@@ -678,7 +694,8 @@ Automated quality gates on every push and pull request:
 
 ### Phase 3 -- Platform Features
 
-- [ ] Web-based dashboard UI for monitoring and rule management
+- [x] Web-based read-only dashboard UI for monitoring (MVP)
+- [ ] Dashboard rule management (write/edit workflows)
 - [ ] Real-time alerting (Slack, PagerDuty, webhooks)
 - [ ] Multi-tenant support with per-tenant policies
 - [ ] Attack replay and forensic analysis tools
