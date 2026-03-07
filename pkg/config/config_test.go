@@ -19,8 +19,17 @@ func TestDefault(t *testing.T) {
 	assert.Equal(t, 0.85, cfg.Detector.MLThreshold)
 	assert.Equal(t, 0.6, cfg.Detector.Weights.Regex)
 	assert.Equal(t, 0.4, cfg.Detector.Weights.ML)
+	assert.True(t, cfg.Detector.AdaptiveThreshold.Enabled)
+	assert.Equal(t, 0.25, cfg.Detector.AdaptiveThreshold.MinThreshold)
+	assert.Equal(t, 0.2, cfg.Detector.AdaptiveThreshold.EWMAAlpha)
 	assert.Equal(t, ":8080", cfg.Proxy.Listen)
 	assert.Equal(t, "block", cfg.Proxy.Action)
+	assert.True(t, cfg.Proxy.RateLimit.Enabled)
+	assert.Equal(t, 120, cfg.Proxy.RateLimit.RequestsPerMinute)
+	assert.Equal(t, 30, cfg.Proxy.RateLimit.Burst)
+	assert.Equal(t, "X-Forwarded-For", cfg.Proxy.RateLimit.KeyHeader)
+	assert.Equal(t, ":8443", cfg.Webhook.Listen)
+	assert.Equal(t, `(?i)pif-proxy`, cfg.Webhook.PIFHostPattern)
 	assert.Equal(t, "info", cfg.Logging.Level)
 	assert.False(t, cfg.Logging.LogPrompts)
 	assert.Len(t, cfg.Rules.Paths, 3)
@@ -38,6 +47,8 @@ func TestLoad_FromFile(t *testing.T) {
 	assert.Equal(t, 0.85, cfg.Detector.MLThreshold)
 	assert.Equal(t, 0.6, cfg.Detector.Weights.Regex)
 	assert.Equal(t, 0.4, cfg.Detector.Weights.ML)
+	assert.True(t, cfg.Proxy.RateLimit.Enabled)
+	assert.Equal(t, 0.25, cfg.Detector.AdaptiveThreshold.MinThreshold)
 }
 
 func TestLoad_NoFile(t *testing.T) {
@@ -54,11 +65,15 @@ func TestLoad_NonexistentFile(t *testing.T) {
 func TestLoad_EnvOverride(t *testing.T) {
 	t.Setenv("PIF_DETECTOR_THRESHOLD", "0.8")
 	t.Setenv("PIF_PROXY_LISTEN", ":9090")
+	t.Setenv("PIF_PROXY_RATE_LIMIT_REQUESTS_PER_MINUTE", "240")
+	t.Setenv("PIF_DETECTOR_ADAPTIVE_THRESHOLD_EWMA_ALPHA", "0.3")
 
 	cfg, err := Load("")
 	require.NoError(t, err)
 	assert.Equal(t, 0.8, cfg.Detector.Threshold)
 	assert.Equal(t, ":9090", cfg.Proxy.Listen)
+	assert.Equal(t, 240, cfg.Proxy.RateLimit.RequestsPerMinute)
+	assert.Equal(t, 0.3, cfg.Detector.AdaptiveThreshold.EWMAAlpha)
 }
 
 func TestLoad_MLEnvOverride(t *testing.T) {
@@ -77,10 +92,20 @@ detector:
   threshold: 0.9
   min_severity: "high"
   timeout_ms: 20
+  adaptive_threshold:
+    enabled: false
+    min_threshold: 0.4
+    ewma_alpha: 0.1
 proxy:
   listen: ":3000"
   target: "https://api.anthropic.com"
   action: "flag"
+  rate_limit:
+    enabled: false
+    requests_per_minute: 30
+    burst: 10
+webhook:
+  pif_host_pattern: "(?i)my-pif"
 `
 	tmpDir := t.TempDir()
 	cfgPath := filepath.Join(tmpDir, "custom.yaml")
@@ -95,6 +120,13 @@ proxy:
 	assert.Equal(t, ":3000", cfg.Proxy.Listen)
 	assert.Equal(t, "https://api.anthropic.com", cfg.Proxy.Target)
 	assert.Equal(t, "flag", cfg.Proxy.Action)
+	assert.False(t, cfg.Proxy.RateLimit.Enabled)
+	assert.Equal(t, 30, cfg.Proxy.RateLimit.RequestsPerMinute)
+	assert.Equal(t, 10, cfg.Proxy.RateLimit.Burst)
+	assert.False(t, cfg.Detector.AdaptiveThreshold.Enabled)
+	assert.Equal(t, 0.4, cfg.Detector.AdaptiveThreshold.MinThreshold)
+	assert.Equal(t, 0.1, cfg.Detector.AdaptiveThreshold.EWMAAlpha)
+	assert.Equal(t, "(?i)my-pif", cfg.Webhook.PIFHostPattern)
 }
 
 func findProjectRoot(t *testing.T) string {

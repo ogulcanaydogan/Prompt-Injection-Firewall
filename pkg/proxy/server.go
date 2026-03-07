@@ -13,10 +13,22 @@ import (
 )
 
 // StartServer starts the PIF reverse proxy server.
-func StartServer(targetURL, listen, actionStr string, d detector.Detector) error {
-	target, err := url.Parse(targetURL)
+func StartServer(opts ServerOptions, d detector.Detector) error {
+	target, err := url.Parse(opts.TargetURL)
 	if err != nil {
 		return fmt.Errorf("parsing target URL: %w", err)
+	}
+	if opts.Metrics == nil {
+		opts.Metrics = NewMetrics()
+	}
+	if opts.ReadTimeout <= 0 {
+		opts.ReadTimeout = 10 * time.Second
+	}
+	if opts.WriteTimeout <= 0 {
+		opts.WriteTimeout = 30 * time.Second
+	}
+	if opts.IdleTimeout <= 0 {
+		opts.IdleTimeout = 60 * time.Second
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
@@ -32,30 +44,39 @@ func StartServer(targetURL, listen, actionStr string, d detector.Detector) error
 		req.Host = target.Host
 	}
 
-	action := ParseAction(actionStr)
-	middleware := ScanMiddleware(d, action, 0.5, logger)
+	action := ParseAction(opts.Action)
+	middleware := ScanMiddlewareWithOptions(d, action, MiddlewareOptions{
+		Threshold:         opts.Threshold,
+		MaxBodySize:       opts.MaxBodySize,
+		ScanTimeout:       opts.ScanTimeout,
+		Logger:            logger,
+		Metrics:           opts.Metrics,
+		RateLimit:         opts.RateLimit,
+		AdaptiveThreshold: opts.AdaptiveThreshold,
+	})
 	handler := middleware(proxy)
 
 	// Health check endpoint
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
+	mux.Handle("GET /metrics", opts.Metrics.Handler())
 	mux.Handle("/", handler)
 
 	server := &http.Server{
-		Addr:         listen,
+		Addr:         opts.Listen,
 		Handler:      mux,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  opts.ReadTimeout,
+		WriteTimeout: opts.WriteTimeout,
+		IdleTimeout:  opts.IdleTimeout,
 	}
 
 	logger.Info("PIF proxy started",
-		"listen", listen,
-		"target", targetURL,
-		"action", actionStr,
+		"listen", opts.Listen,
+		"target", opts.TargetURL,
+		"action", opts.Action,
 	)
 
 	return server.ListenAndServe()

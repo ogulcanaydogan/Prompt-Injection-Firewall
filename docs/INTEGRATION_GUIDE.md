@@ -29,6 +29,7 @@ go install github.com/ogulcanaydogan/Prompt-Injection-Firewall/cmd/pif-cli@lates
 git clone https://github.com/ogulcanaydogan/Prompt-Injection-Firewall.git
 cd Prompt-Injection-Firewall
 go build -o pif ./cmd/pif-cli/
+go build -o pif-firewall ./cmd/firewall/
 ```
 
 ### Option C: Docker
@@ -52,6 +53,9 @@ Verify it is running:
 ```bash
 curl http://localhost:8080/healthz
 # {"status":"ok"}
+
+curl http://localhost:8080/metrics
+# Prometheus metrics output
 ```
 
 ## Step 3: Integrate with Your SDK
@@ -175,10 +179,44 @@ X-PIF-Flagged: true
 X-PIF-Score: 0.85
 ```
 
+## Step 6: Enable Rate Limiting and Adaptive Thresholds
+
+Rate limiting and adaptive thresholds are enabled by default in `config.yaml`.
+
+```yaml
+proxy:
+  rate_limit:
+    enabled: true
+    requests_per_minute: 120
+    burst: 30
+    key_header: "X-Forwarded-For"
+
+detector:
+  adaptive_threshold:
+    enabled: true
+    min_threshold: 0.25
+    ewma_alpha: 0.2
+```
+
+## Step 7: Kubernetes Admission Webhook (Optional)
+
+To enforce PIF proxy usage cluster-wide for LLM-enabled workloads:
+
+```bash
+kubectl apply -f deploy/kubernetes/namespace.yaml
+kubectl apply -f deploy/kubernetes/webhook-service.yaml
+kubectl apply -f deploy/kubernetes/webhook-deployment.yaml
+kubectl apply -f deploy/kubernetes/webhook-certificate.yaml
+kubectl apply -f deploy/kubernetes/validating-webhook-configuration.yaml
+```
+
+The webhook validates `Pod`, `Deployment`, `StatefulSet`, `Job`, and `CronJob` on `CREATE/UPDATE`.
+
 ## Verify Setup Checklist
 
 - [ ] PIF proxy starts without errors
 - [ ] `curl /healthz` returns `{"status":"ok"}`
+- [ ] `curl /metrics` returns Prometheus metrics
 - [ ] Clean prompts pass through successfully
 - [ ] Known injection attempts return HTTP 403
 - [ ] Your application handles 403 responses gracefully

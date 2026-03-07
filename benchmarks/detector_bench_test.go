@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
 	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/rules"
 )
@@ -37,7 +38,6 @@ func findRulesDir(tb testing.TB) string {
 		}
 		dir = parent
 	}
-	return ""
 }
 
 func BenchmarkRegexDetector_ShortClean(b *testing.B) {

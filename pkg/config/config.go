@@ -12,18 +12,20 @@ type Config struct {
 	Detector  DetectorConfig  `mapstructure:"detector"`
 	Rules     RulesConfig     `mapstructure:"rules"`
 	Proxy     ProxyConfig     `mapstructure:"proxy"`
+	Webhook   WebhookConfig   `mapstructure:"webhook"`
 	Allowlist AllowlistConfig `mapstructure:"allowlist"`
 	Logging   LoggingConfig   `mapstructure:"logging"`
 }
 
 type DetectorConfig struct {
-	Threshold   float64       `mapstructure:"threshold"`
-	MinSeverity string        `mapstructure:"min_severity"`
-	TimeoutMs   int           `mapstructure:"timeout_ms"`
-	Strategy    string        `mapstructure:"ensemble_strategy"`
-	MLModelPath string        `mapstructure:"ml_model_path"`
-	MLThreshold float64       `mapstructure:"ml_threshold"`
-	Weights     WeightsConfig `mapstructure:"weights"`
+	Threshold         float64                 `mapstructure:"threshold"`
+	MinSeverity       string                  `mapstructure:"min_severity"`
+	TimeoutMs         int                     `mapstructure:"timeout_ms"`
+	Strategy          string                  `mapstructure:"ensemble_strategy"`
+	MLModelPath       string                  `mapstructure:"ml_model_path"`
+	MLThreshold       float64                 `mapstructure:"ml_threshold"`
+	Weights           WeightsConfig           `mapstructure:"weights"`
+	AdaptiveThreshold AdaptiveThresholdConfig `mapstructure:"adaptive_threshold"`
 }
 
 // WeightsConfig defines ensemble weights for each detector type.
@@ -38,12 +40,33 @@ type RulesConfig struct {
 }
 
 type ProxyConfig struct {
-	Listen       string `mapstructure:"listen"`
-	Target       string `mapstructure:"target"`
-	Action       string `mapstructure:"action"`
-	MaxBodySize  int64  `mapstructure:"max_body_size"`
-	ReadTimeout  string `mapstructure:"read_timeout"`
-	WriteTimeout string `mapstructure:"write_timeout"`
+	Listen       string          `mapstructure:"listen"`
+	Target       string          `mapstructure:"target"`
+	Action       string          `mapstructure:"action"`
+	MaxBodySize  int64           `mapstructure:"max_body_size"`
+	ReadTimeout  string          `mapstructure:"read_timeout"`
+	WriteTimeout string          `mapstructure:"write_timeout"`
+	RateLimit    RateLimitConfig `mapstructure:"rate_limit"`
+}
+
+type RateLimitConfig struct {
+	Enabled           bool   `mapstructure:"enabled"`
+	RequestsPerMinute int    `mapstructure:"requests_per_minute"`
+	Burst             int    `mapstructure:"burst"`
+	KeyHeader         string `mapstructure:"key_header"`
+}
+
+type AdaptiveThresholdConfig struct {
+	Enabled      bool    `mapstructure:"enabled"`
+	MinThreshold float64 `mapstructure:"min_threshold"`
+	EWMAAlpha    float64 `mapstructure:"ewma_alpha"`
+}
+
+type WebhookConfig struct {
+	Listen         string `mapstructure:"listen"`
+	TLSCertFile    string `mapstructure:"tls_cert_file"`
+	TLSKeyFile     string `mapstructure:"tls_key_file"`
+	PIFHostPattern string `mapstructure:"pif_host_pattern"`
 }
 
 type AllowlistConfig struct {
@@ -72,6 +95,11 @@ func Default() *Config {
 				Regex: 0.6,
 				ML:    0.4,
 			},
+			AdaptiveThreshold: AdaptiveThresholdConfig{
+				Enabled:      true,
+				MinThreshold: 0.25,
+				EWMAAlpha:    0.2,
+			},
 		},
 		Rules: RulesConfig{
 			Paths: []string{
@@ -87,6 +115,18 @@ func Default() *Config {
 			MaxBodySize:  1048576, // 1MB
 			ReadTimeout:  "10s",
 			WriteTimeout: "30s",
+			RateLimit: RateLimitConfig{
+				Enabled:           true,
+				RequestsPerMinute: 120,
+				Burst:             30,
+				KeyHeader:         "X-Forwarded-For",
+			},
+		},
+		Webhook: WebhookConfig{
+			Listen:         ":8443",
+			TLSCertFile:    "/etc/pif/webhook/tls.crt",
+			TLSKeyFile:     "/etc/pif/webhook/tls.key",
+			PIFHostPattern: `(?i)pif-proxy`,
 		},
 		Logging: LoggingConfig{
 			Level:      "info",
@@ -112,6 +152,9 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("detector.ml_threshold", defaults.Detector.MLThreshold)
 	v.SetDefault("detector.weights.regex", defaults.Detector.Weights.Regex)
 	v.SetDefault("detector.weights.ml", defaults.Detector.Weights.ML)
+	v.SetDefault("detector.adaptive_threshold.enabled", defaults.Detector.AdaptiveThreshold.Enabled)
+	v.SetDefault("detector.adaptive_threshold.min_threshold", defaults.Detector.AdaptiveThreshold.MinThreshold)
+	v.SetDefault("detector.adaptive_threshold.ewma_alpha", defaults.Detector.AdaptiveThreshold.EWMAAlpha)
 	v.SetDefault("rules.paths", defaults.Rules.Paths)
 	v.SetDefault("proxy.listen", defaults.Proxy.Listen)
 	v.SetDefault("proxy.target", defaults.Proxy.Target)
@@ -119,6 +162,14 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("proxy.max_body_size", defaults.Proxy.MaxBodySize)
 	v.SetDefault("proxy.read_timeout", defaults.Proxy.ReadTimeout)
 	v.SetDefault("proxy.write_timeout", defaults.Proxy.WriteTimeout)
+	v.SetDefault("proxy.rate_limit.enabled", defaults.Proxy.RateLimit.Enabled)
+	v.SetDefault("proxy.rate_limit.requests_per_minute", defaults.Proxy.RateLimit.RequestsPerMinute)
+	v.SetDefault("proxy.rate_limit.burst", defaults.Proxy.RateLimit.Burst)
+	v.SetDefault("proxy.rate_limit.key_header", defaults.Proxy.RateLimit.KeyHeader)
+	v.SetDefault("webhook.listen", defaults.Webhook.Listen)
+	v.SetDefault("webhook.tls_cert_file", defaults.Webhook.TLSCertFile)
+	v.SetDefault("webhook.tls_key_file", defaults.Webhook.TLSKeyFile)
+	v.SetDefault("webhook.pif_host_pattern", defaults.Webhook.PIFHostPattern)
 	v.SetDefault("logging.level", defaults.Logging.Level)
 	v.SetDefault("logging.format", defaults.Logging.Format)
 	v.SetDefault("logging.output", defaults.Logging.Output)

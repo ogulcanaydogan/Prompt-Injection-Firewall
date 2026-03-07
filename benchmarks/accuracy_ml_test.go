@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/detector"
 	"github.com/ogulcanaydogan/Prompt-Injection-Firewall/pkg/rules"
 )

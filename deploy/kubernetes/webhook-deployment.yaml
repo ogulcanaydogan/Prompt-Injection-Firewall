@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pif-admission-webhook
+  namespace: pif-system
+  labels:
+    app.kubernetes.io/name: pif-admission-webhook
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pif-admission-webhook
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pif-admission-webhook
+    spec:
+      containers:
+        - name: webhook
+          image: ghcr.io/ogulcanaydogan/prompt-injection-firewall:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/usr/local/bin/pif-webhook"]
+          args:
+            - "--listen"
+            - ":8443"
+            - "--tls-cert-file"
+            - "/etc/webhook/certs/tls.crt"
+            - "--tls-key-file"
+            - "/etc/webhook/certs/tls.key"
+            - "--pif-host-pattern"
+            - "(?i)pif-proxy|pif-firewall"
+          ports:
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: https
+              scheme: HTTPS
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: https
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: webhook-certs
+              mountPath: /etc/webhook/certs
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: webhook-certs
+          secret:
+            secretName: pif-admission-webhook-tls

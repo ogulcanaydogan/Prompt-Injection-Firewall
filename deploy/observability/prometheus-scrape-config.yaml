@@ -1,0 +1,7 @@
+scrape_configs:
+  - job_name: pif-firewall
+    scrape_interval: 15s
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - pif-firewall.default.svc.cluster.local:8080

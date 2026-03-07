@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/knights-analytics/hugot"
+	"github.com/knights-analytics/hugot/options"
 	"github.com/knights-analytics/hugot/pipelines"
 )
 
@@ -47,21 +48,23 @@ func NewMLDetector(cfg MLConfig) (*MLDetector, error) {
 	}
 
 	// Create ONNX Runtime session
-	session, err := hugot.NewSession(
-		hugot.WithOnnxLibraryPath(""), // use default ONNX Runtime location
+	session, err := hugot.NewORTSession(
+		options.WithOnnxLibraryPath(""), // use default ONNX Runtime location
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating ONNX session: %w", err)
 	}
 
 	// Create text classification pipeline
-	pipeline, err := session.NewTextClassificationPipeline(
-		cfg.ModelPath,
-		"pif-injection-classifier",
-		pipelines.WithSingleLabel(),
-	)
+	pipeline, err := hugot.NewPipeline(session, hugot.TextClassificationConfig{
+		ModelPath: cfg.ModelPath,
+		Name:      "pif-injection-classifier",
+		Options: []hugot.TextClassificationOption{
+			pipelines.WithSingleLabel(),
+		},
+	})
 	if err != nil {
-		session.Destroy()
+		_ = session.Destroy()
 		return nil, fmt.Errorf("creating classification pipeline: %w", err)
 	}
 
@@ -145,7 +148,7 @@ func (m *MLDetector) Scan(ctx context.Context, input ScanInput) (*ScanResult, er
 							Description: "ML model detected potential prompt injection",
 							MatchedText: truncateText(input.Text, 80),
 							Offset:      0,
-							Length:       len(input.Text),
+							Length:      len(input.Text),
 							Metadata: map[string]string{
 								"detector":   "distilbert-onnx",
 								"confidence": fmt.Sprintf("%.4f", cls.Score),
@@ -168,7 +171,7 @@ func (m *MLDetector) Close() error {
 
 	m.ready = false
 	if m.session != nil {
-		m.session.Destroy()
+		_ = m.session.Destroy()
 		m.session = nil
 	}
 	return nil

@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: pif-admission-selfsigned
+  namespace: pif-system
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: pif-admission-webhook-tls
+  namespace: pif-system
+spec:
+  secretName: pif-admission-webhook-tls
+  issuerRef:
+    kind: Issuer
+    name: pif-admission-selfsigned
+  dnsNames:
+    - pif-admission-webhook.pif-system.svc
+    - pif-admission-webhook.pif-system.svc.cluster.local
