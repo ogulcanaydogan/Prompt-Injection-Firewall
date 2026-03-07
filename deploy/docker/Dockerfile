@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git ca-certificates
 
@@ -11,11 +11,13 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /pif-firewall ./cmd/firewall/
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /pif-cli ./cmd/pif-cli/
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /pif-webhook ./cmd/webhook/
 
 FROM gcr.io/distroless/static-debian12:nonroot
 
 COPY --from=builder /pif-firewall /usr/local/bin/pif-firewall
 COPY --from=builder /pif-cli /usr/local/bin/pif-cli
+COPY --from=builder /pif-webhook /usr/local/bin/pif-webhook
 COPY rules/ /etc/pif/rules/
 COPY config.yaml /etc/pif/config.yaml
 
