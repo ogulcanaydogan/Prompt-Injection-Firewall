@@ -33,6 +33,16 @@ proxy:
     burst: 30
     key_header: "X-Forwarded-For"
 
+dashboard:
+  enabled: false
+  path: "/dashboard"
+  api_prefix: "/api/dashboard"
+  refresh_seconds: 5
+  auth:
+    enabled: false
+    username: ""
+    password: ""
+
 webhook:
   listen: ":8443"
   tls_cert_file: "/etc/pif/webhook/tls.crt"
