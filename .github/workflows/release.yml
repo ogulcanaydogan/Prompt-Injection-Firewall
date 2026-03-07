@@ -34,6 +34,9 @@ jobs:
               CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
                 go build -ldflags="-s -w -X github.com/ogulcanaydogan/Prompt-Injection-Firewall/internal/cli.Version=${{ github.ref_name }}" \
                 -o dist/pif-firewall-${GOOS}-${GOARCH}${EXT} ./cmd/firewall/
+              CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
+                go build -ldflags="-s -w -X github.com/ogulcanaydogan/Prompt-Injection-Firewall/internal/cli.Version=${{ github.ref_name }}" \
+                -o dist/pif-webhook-${GOOS}-${GOARCH}${EXT} ./cmd/webhook/
             done
           done
       - name: Create checksums
