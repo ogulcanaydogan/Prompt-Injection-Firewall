@@ -45,6 +45,29 @@ dashboard:
   rule_management:
     enabled: false
 
+alerting:
+  enabled: false
+  queue_size: 1024
+  events:
+    block: true
+    rate_limit: true
+    scan_error: true
+  throttle:
+    window_seconds: 60
+  webhook:
+    enabled: false
+    url: ""
+    timeout: "3s"
+    max_retries: 3
+    backoff_initial_ms: 200
+    auth_bearer_token: ""
+  slack:
+    enabled: false
+    incoming_webhook_url: ""
+    timeout: "3s"
+    max_retries: 3
+    backoff_initial_ms: 200
+
 webhook:
   listen: ":8443"
   tls_cert_file: "/etc/pif/webhook/tls.crt"

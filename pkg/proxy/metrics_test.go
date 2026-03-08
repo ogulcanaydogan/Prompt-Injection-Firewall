@@ -16,10 +16,14 @@ func TestMetrics_RecordsValues(t *testing.T) {
 	m.ObserveDetectionScore(0.9, "injection")
 	m.IncInjectionDetection("block")
 	m.IncRateLimitEvent("exceeded")
+	m.IncAlertEvent("injection_blocked", "enqueued")
+	m.IncAlertSinkDelivery("webhook", "sent")
 
 	assert.Equal(t, 1.0, testutil.ToFloat64(m.httpRequestsTotal.WithLabelValues("POST", "block", "blocked")))
 	assert.Equal(t, 1.0, testutil.ToFloat64(m.injectionDetectionsTotal.WithLabelValues("block")))
 	assert.Equal(t, 1.0, testutil.ToFloat64(m.rateLimitEventsTotal.WithLabelValues("exceeded")))
+	assert.Equal(t, 1.0, testutil.ToFloat64(m.alertEventsTotal.WithLabelValues("injection_blocked", "enqueued")))
+	assert.Equal(t, 1.0, testutil.ToFloat64(m.alertSinkDeliveriesTotal.WithLabelValues("webhook", "sent")))
 }
 
 func TestMetrics_SnapshotIncludesDashboardAggregates(t *testing.T) {

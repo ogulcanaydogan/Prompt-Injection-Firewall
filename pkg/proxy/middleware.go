@@ -67,6 +67,21 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 		limiter = newPerClientRateLimiter(opts.RateLimit)
 	}
 	adaptive := newAdaptiveThresholdState(opts.AdaptiveThreshold)
+	publisher := opts.AlertPublisher
+	if publisher == nil {
+		publisher = NewNoopAlertPublisher()
+	}
+	alertingEnabled := opts.Alerting.Enabled
+	var rateLimitAlerts *alertWindowAggregator
+	var scanErrorAlerts *alertWindowAggregator
+	if alertingEnabled {
+		window := opts.Alerting.ThrottleWindow
+		if window <= 0 {
+			window = 60 * time.Second
+		}
+		rateLimitAlerts = newAlertWindowAggregator(window)
+		scanErrorAlerts = newAlertWindowAggregator(window)
+	}
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -81,6 +96,21 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 				if !limiter.allow(clientKey) {
 					outcome = "rate_limited"
 					opts.Metrics.IncRateLimitEvent("exceeded")
+					if alertingEnabled && opts.Alerting.Events.RateLimit {
+						if emit, aggregateCount := rateLimitAlerts.Record("rate_limit:"+clientKey+":exceeded", time.Now().UTC()); emit {
+							publisher.Publish(AlertEvent{
+								Timestamp:      time.Now().UTC(),
+								EventType:      AlertEventRateLimit,
+								Action:         actionLabel,
+								ClientKey:      clientKey,
+								Method:         r.Method,
+								Path:           r.URL.Path,
+								Target:         opts.Alerting.TargetURL,
+								Reason:         "exceeded",
+								AggregateCount: aggregateCount,
+							})
+						}
+					}
 					writeRateLimitResponse(w)
 					return
 				}
@@ -154,6 +184,22 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 			} else if scanErrors > 0 {
 				scanOutcome = "scan_error"
 			}
+			if scanErrors > 0 && alertingEnabled && opts.Alerting.Events.ScanError {
+				key := "scan_error:" + clientKey + ":" + r.URL.Path
+				if emit, aggregateCount := scanErrorAlerts.Record(key, time.Now().UTC()); emit {
+					publisher.Publish(AlertEvent{
+						Timestamp:      time.Now().UTC(),
+						EventType:      AlertEventScanError,
+						Action:         actionLabel,
+						ClientKey:      clientKey,
+						Method:         r.Method,
+						Path:           r.URL.Path,
+						Target:         opts.Alerting.TargetURL,
+						Reason:         "detector_scan_error",
+						AggregateCount: aggregateCount,
+					})
+				}
+			}
 			opts.Metrics.ObserveScanDuration(time.Since(scanStart).Seconds(), scanOutcome)
 			opts.Metrics.ObserveDetectionScore(maxScore, scanOutcome)
 
@@ -169,6 +215,23 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 				switch action {
 				case ActionBlock:
 					outcome = "blocked"
+					if alertingEnabled && opts.Alerting.Events.Block {
+						publisher.Publish(AlertEvent{
+							Timestamp:      time.Now().UTC(),
+							EventType:      AlertEventInjectionBlocked,
+							Action:         actionLabel,
+							ClientKey:      clientKey,
+							Method:         r.Method,
+							Path:           r.URL.Path,
+							Target:         opts.Alerting.TargetURL,
+							Score:          maxScore,
+							Threshold:      effectiveThreshold,
+							FindingsCount:  len(allFindings),
+							Reason:         "blocked_by_policy",
+							SampleFindings: alertFindingSamples(allFindings, 3),
+							AggregateCount: 1,
+						})
+					}
 					writeBlockResponse(w, maxScore, allFindings)
 					return
 				case ActionFlag:
@@ -257,4 +320,24 @@ func ensureLogger(logger *slog.Logger) *slog.Logger {
 		return logger
 	}
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
+func alertFindingSamples(findings []detector.Finding, limit int) []AlertFinding {
+	if limit <= 0 || len(findings) == 0 {
+		return nil
+	}
+	if len(findings) < limit {
+		limit = len(findings)
+	}
+	samples := make([]AlertFinding, 0, limit)
+	for i := 0; i < limit; i++ {
+		f := findings[i]
+		samples = append(samples, AlertFinding{
+			RuleID:   f.RuleID,
+			Category: string(f.Category),
+			Severity: int(f.Severity),
+			Match:    f.MatchedText,
+		})
+	}
+	return samples
 }

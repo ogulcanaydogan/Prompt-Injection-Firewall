@@ -49,6 +49,41 @@ type RuleSetInfo struct {
 	RuleCount int    `json:"rule_count"`
 }
 
+// AlertingEventOptions controls which events produce alerts.
+type AlertingEventOptions struct {
+	Block     bool
+	RateLimit bool
+	ScanError bool
+}
+
+// AlertingSinkOptions controls outbound sink behavior.
+type AlertingSinkOptions struct {
+	Enabled         bool
+	URL             string
+	Timeout         time.Duration
+	MaxRetries      int
+	BackoffInitial  time.Duration
+	AuthBearerToken string
+}
+
+// AlertingOptions configures real-time alerting pipeline behavior.
+type AlertingOptions struct {
+	Enabled        bool
+	QueueSize      int
+	Events         AlertingEventOptions
+	ThrottleWindow time.Duration
+	Webhook        AlertingSinkOptions
+	Slack          AlertingSinkOptions
+}
+
+// AlertingRuntimeOptions contains alerting context needed by middleware.
+type AlertingRuntimeOptions struct {
+	Enabled        bool
+	Events         AlertingEventOptions
+	ThrottleWindow time.Duration
+	TargetURL      string
+}
+
 // MiddlewareOptions configures scanning middleware behavior.
 type MiddlewareOptions struct {
 	Threshold         float64
@@ -58,6 +93,8 @@ type MiddlewareOptions struct {
 	Metrics           *Metrics
 	RateLimit         RateLimitOptions
 	AdaptiveThreshold AdaptiveThresholdOptions
+	Alerting          AlertingRuntimeOptions
+	AlertPublisher    AlertPublisher
 }
 
 // ServerOptions configures proxy server behavior.
@@ -77,4 +114,5 @@ type ServerOptions struct {
 	Dashboard         DashboardOptions
 	RuleInventory     []RuleSetInfo
 	RuleManager       RuleManager
+	Alerting          AlertingOptions
 }
