@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-08
+
 ### Added
 
 - **Phase 3 Step 3 -- Real-Time Alerting MVP (Webhook + Slack)**
@@ -140,7 +142,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Rule development guide
   - Integration examples for Python, Node.js, cURL, and Docker
 
-[Unreleased]: https://github.com/ogulcanaydogan/Prompt-Injection-Firewall/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/ogulcanaydogan/Prompt-Injection-Firewall/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/ogulcanaydogan/Prompt-Injection-Firewall/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/ogulcanaydogan/Prompt-Injection-Firewall/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/ogulcanaydogan/Prompt-Injection-Firewall/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ogulcanaydogan/Prompt-Injection-Firewall/releases/tag/v1.0.0
