@@ -184,6 +184,73 @@ func TestRuntimeRuleManager_DefaultManagedPathWhenCustomEmpty(t *testing.T) {
 	assert.Equal(t, 2, snapshot.TotalRuleSets)
 }
 
+func TestRuntimeRuleManager_LoadsMarketplaceDirectoryWithMetadata(t *testing.T) {
+	tmp := t.TempDir()
+	baseRulesPath := filepath.Join(tmp, "base.yaml")
+	marketDir := filepath.Join(tmp, "rules", "community")
+	managedPath := filepath.Join(tmp, "custom.yaml")
+
+	writeRuleSetFixture(t, baseRulesPath, rules.RuleSet{
+		Name:    "base",
+		Version: "1.0.0",
+		Rules: []rules.Rule{
+			{
+				ID:            "BASE-001",
+				Name:          "base rule",
+				Description:   "base rule",
+				Category:      "prompt_injection",
+				Severity:      int(detector.SeverityMedium),
+				Pattern:       "base_hit",
+				Enabled:       true,
+				CaseSensitive: false,
+			},
+		},
+	})
+
+	marketFile := filepath.Join(marketDir, "community-pack_1.2.3.yaml")
+	writeRuleSetFixture(t, marketFile, rules.RuleSet{
+		Name:    "community-pack",
+		Version: "1.2.3",
+		Rules: []rules.Rule{
+			{
+				ID:            "COMM-001",
+				Name:          "community",
+				Description:   "community rule",
+				Category:      "prompt_injection",
+				Severity:      int(detector.SeverityHigh),
+				Pattern:       "market_hit",
+				Enabled:       true,
+				CaseSensitive: false,
+			},
+		},
+	})
+
+	manager, err := NewRuntimeRuleManager(RuntimeRuleManagerOptions{
+		RulePaths:             []string{baseRulesPath},
+		CustomPaths:           []string{managedPath, marketDir},
+		MarketplaceInstallDir: marketDir,
+		DetectorFactory:       testRuleManagerDetectorFactory,
+	})
+	require.NoError(t, err)
+
+	snapshot := manager.Snapshot()
+	assert.GreaterOrEqual(t, snapshot.TotalRuleSets, 3)
+	assert.GreaterOrEqual(t, snapshot.TotalRules, 2)
+
+	var foundMarketplace bool
+	for _, rs := range snapshot.RuleSets {
+		if rs.Source == "marketplace" {
+			foundMarketplace = true
+			assert.NotEmpty(t, rs.Path)
+			assert.Equal(t, "community-pack", rs.Name)
+			require.NotNil(t, rs.Metadata)
+			assert.Equal(t, "community-pack", rs.Metadata["id"])
+			assert.Equal(t, "1.2.3", rs.Metadata["version"])
+		}
+	}
+	assert.True(t, foundMarketplace)
+}
+
 func testRuleManagerDetectorFactory(ruleSets []rules.RuleSet) (detector.Detector, error) {
 	regexDetector, err := detector.NewRegexDetector(ruleSets...)
 	if err != nil {

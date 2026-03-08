@@ -20,6 +20,10 @@ import (
 )
 
 func buildDashboardTestServer(t *testing.T, dashboard DashboardOptions) (*httptest.Server, RuleManager) {
+	return buildDashboardTestServerWithReplay(t, dashboard, ReplayOptions{}, nil)
+}
+
+func buildDashboardTestServerWithReplay(t *testing.T, dashboard DashboardOptions, replayOpts ReplayOptions, replayStore ReplayStore) (*httptest.Server, RuleManager) {
 	t.Helper()
 
 	tmp := t.TempDir()
@@ -71,6 +75,8 @@ func buildDashboardTestServer(t *testing.T, dashboard DashboardOptions) (*httpte
 			MinThreshold: 0.25,
 			EWMAAlpha:    0.2,
 		},
+		Replay:      replayOpts,
+		ReplayStore: replayStore,
 	}
 
 	upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -272,4 +278,138 @@ func sendProxyPrompt(t *testing.T, baseURL, content string) int {
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	return resp.StatusCode
+}
+
+func TestDashboardReplayEndpoints(t *testing.T) {
+	replayStore, err := NewLocalReplayStore(ReplayOptions{
+		Enabled:             true,
+		StoragePath:         filepath.Join(t.TempDir(), "events.jsonl"),
+		MaxFileSizeMB:       5,
+		MaxFiles:            2,
+		RedactPromptContent: false,
+		MaxPromptChars:      256,
+	}, nil)
+	require.NoError(t, err)
+	require.NoError(t, replayStore.Record(ReplayCaptureInput{
+		Tenant:    "default",
+		EventType: ReplayEventTypeBlock,
+		Decision:  "block",
+		Score:     0.9,
+		Threshold: 0.5,
+		RequestMeta: ReplayRequestMeta{
+			Method:    "POST",
+			Path:      "/v1/chat/completions",
+			Target:    "http://upstream.local",
+			ClientKey: "203.0.113.10",
+		},
+		Body:   []byte(`{"messages":[{"role":"user","content":"attack payload"}]}`),
+		Inputs: []detector.ScanInput{{Role: "user", Text: "attack payload"}},
+	}))
+
+	srv, _ := buildDashboardTestServerWithReplay(t, DashboardOptions{
+		Enabled:               true,
+		Path:                  "/dashboard",
+		APIPrefix:             "/api/dashboard",
+		RefreshSeconds:        5,
+		RuleManagementEnabled: true,
+		Auth:                  DashboardAuthOptions{Enabled: false},
+	}, ReplayOptions{Enabled: true}, replayStore)
+	defer srv.Close()
+
+	listResp, err := http.Get(srv.URL + "/api/dashboard/replays")
+	require.NoError(t, err)
+	defer listResp.Body.Close()
+	assert.Equal(t, http.StatusOK, listResp.StatusCode)
+
+	var list dashboardReplayListResponse
+	require.NoError(t, json.NewDecoder(listResp.Body).Decode(&list))
+	require.NotEmpty(t, list.Events)
+	replayID := list.Events[0].ReplayID
+
+	detailResp, err := http.Get(srv.URL + "/api/dashboard/replays/" + replayID)
+	require.NoError(t, err)
+	defer detailResp.Body.Close()
+	assert.Equal(t, http.StatusOK, detailResp.StatusCode)
+
+	rescanReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+"/api/dashboard/replays/"+replayID+"/rescan", nil)
+	require.NoError(t, err)
+	rescanResp, err := http.DefaultClient.Do(rescanReq)
+	require.NoError(t, err)
+	defer rescanResp.Body.Close()
+	assert.Equal(t, http.StatusOK, rescanResp.StatusCode)
+
+	var rescan ReplayRescanResult
+	require.NoError(t, json.NewDecoder(rescanResp.Body).Decode(&rescan))
+	assert.True(t, rescan.RescanPossible)
+}
+
+func TestDashboardReplayEndpoints_DisabledReturns404(t *testing.T) {
+	srv, _ := buildDashboardTestServer(t, DashboardOptions{
+		Enabled:   true,
+		Path:      "/dashboard",
+		APIPrefix: "/api/dashboard",
+	})
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/api/dashboard/replays")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestTenantBreakdownForDashboard_DefinedTenantsOnly(t *testing.T) {
+	snapshot := MetricsSnapshot{
+		TenantBreakdown: map[string]TenantMetricsSnapshot{
+			"default": {
+				TotalRequests:            10,
+				TotalInjectionDetections: 1,
+				TotalRateLimitEvents:     2,
+			},
+			"team-a": {
+				TotalRequests: 4,
+			},
+			"unknown": {
+				TotalRequests: 8,
+			},
+		},
+	}
+	opts := ServerOptions{
+		Tenancy: TenancyOptions{
+			Enabled:       true,
+			DefaultTenant: "default",
+			Tenants: map[string]TenantPolicyOptions{
+				"team-a": {},
+			},
+		},
+	}
+
+	out := tenantBreakdownForDashboard(opts, snapshot)
+	require.Contains(t, out, "default")
+	require.Contains(t, out, "team-a")
+	assert.NotContains(t, out, "unknown")
+	assert.Equal(t, uint64(10), out["default"].Requests)
+	assert.Equal(t, uint64(1), out["default"].Injections)
+	assert.Equal(t, uint64(2), out["default"].RateLimit)
+}
+
+func TestFilterTenantBreakdown(t *testing.T) {
+	opts := ServerOptions{
+		Tenancy: TenancyOptions{
+			Enabled:       true,
+			DefaultTenant: "default",
+			Tenants: map[string]TenantPolicyOptions{
+				"team-a": {},
+			},
+		},
+	}
+
+	filtered := filterTenantBreakdown(opts, map[string]TenantMetricsSnapshot{
+		"default": {TotalRequests: 1},
+		"team-a":  {TotalRequests: 2},
+		"other":   {TotalRequests: 3},
+	})
+	require.Len(t, filtered, 2)
+	assert.Contains(t, filtered, "default")
+	assert.Contains(t, filtered, "team-a")
+	assert.NotContains(t, filtered, "other")
 }
