@@ -82,15 +82,27 @@ func runProxy(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	tenancyOptions := parseTenancyOptions(cfg)
+	replayOptions := parseReplayOptions(cfg)
+	marketplaceOptions := parseMarketplaceOptions(cfg)
 
 	detectorFactory := buildProxyDetectorFactory(cfg, modelPath)
+	customRulePaths := append([]string{}, cfg.Rules.CustomPaths...)
+	if marketplaceOptions.Enabled && marketplaceOptions.InstallDir != "" {
+		customRulePaths = append(customRulePaths, marketplaceOptions.InstallDir)
+	}
 	ruleManager, err := proxy.NewRuntimeRuleManager(proxy.RuntimeRuleManagerOptions{
-		RulePaths:       cfg.Rules.Paths,
-		CustomPaths:     cfg.Rules.CustomPaths,
-		DetectorFactory: detectorFactory,
+		RulePaths:             cfg.Rules.Paths,
+		CustomPaths:           customRulePaths,
+		MarketplaceInstallDir: marketplaceOptions.InstallDir,
+		DetectorFactory:       detectorFactory,
 	})
 	if err != nil {
 		return fmt.Errorf("initializing runtime rule manager: %w", err)
+	}
+	replayStore, err := proxy.NewLocalReplayStore(replayOptions, nil)
+	if err != nil {
+		return fmt.Errorf("initializing replay store: %w", err)
 	}
 
 	currentDetector := ruleManager.CurrentDetector()
@@ -136,6 +148,7 @@ func runProxy(cmd *cobra.Command, args []string) error {
 			MinThreshold: cfg.Detector.AdaptiveThreshold.MinThreshold,
 			EWMAAlpha:    cfg.Detector.AdaptiveThreshold.EWMAAlpha,
 		},
+		Tenancy: tenancyOptions,
 		Dashboard: proxy.DashboardOptions{
 			Enabled:               cfg.Dashboard.Enabled,
 			Path:                  cfg.Dashboard.Path,
@@ -151,6 +164,9 @@ func runProxy(cmd *cobra.Command, args []string) error {
 		RuleInventory: ruleSnapshot.RuleSets,
 		RuleManager:   ruleManager,
 		Alerting:      alertingOptions,
+		Replay:        replayOptions,
+		ReplayStore:   replayStore,
+		Marketplace:   marketplaceOptions,
 	}, ruleManager.Detector())
 }
 
@@ -217,6 +233,10 @@ func parseAlertingOptions(cfg *config.Config) (proxy.AlertingOptions, error) {
 	if err != nil {
 		return proxy.AlertingOptions{}, fmt.Errorf("parsing alerting.slack.timeout: %w", err)
 	}
+	pagerDutyTimeout, err := time.ParseDuration(cfg.Alerting.PagerDuty.Timeout)
+	if err != nil {
+		return proxy.AlertingOptions{}, fmt.Errorf("parsing alerting.pagerduty.timeout: %w", err)
+	}
 	throttleWindow := time.Duration(cfg.Alerting.Throttle.WindowSeconds) * time.Second
 	if throttleWindow <= 0 {
 		throttleWindow = 60 * time.Second
@@ -246,5 +266,72 @@ func parseAlertingOptions(cfg *config.Config) (proxy.AlertingOptions, error) {
 			MaxRetries:     cfg.Alerting.Slack.MaxRetries,
 			BackoffInitial: time.Duration(cfg.Alerting.Slack.BackoffInitialMs) * time.Millisecond,
 		},
+		PagerDuty: proxy.AlertingPagerDutyOptions{
+			Enabled:        cfg.Alerting.PagerDuty.Enabled,
+			URL:            cfg.Alerting.PagerDuty.URL,
+			RoutingKey:     cfg.Alerting.PagerDuty.RoutingKey,
+			Timeout:        pagerDutyTimeout,
+			MaxRetries:     cfg.Alerting.PagerDuty.MaxRetries,
+			BackoffInitial: time.Duration(cfg.Alerting.PagerDuty.BackoffInitialMs) * time.Millisecond,
+			Source:         cfg.Alerting.PagerDuty.Source,
+			Component:      cfg.Alerting.PagerDuty.Component,
+			Group:          cfg.Alerting.PagerDuty.Group,
+			Class:          cfg.Alerting.PagerDuty.Class,
+		},
 	}, nil
+}
+
+func parseTenancyOptions(cfg *config.Config) proxy.TenancyOptions {
+	tenants := make(map[string]proxy.TenantPolicyOptions, len(cfg.Tenancy.Tenants))
+	for name, tenantCfg := range cfg.Tenancy.Tenants {
+		policy := tenantCfg.Policy
+		tenants[name] = proxy.TenantPolicyOptions{
+			Action:    policy.Action,
+			Threshold: policy.Threshold,
+			RateLimit: proxy.RateLimitOptions{
+				RequestsPerMinute: policy.RateLimit.RequestsPerMinute,
+				Burst:             policy.RateLimit.Burst,
+			},
+			AdaptiveThreshold: proxy.TenantAdaptiveThresholdOverrideOptions{
+				Enabled:      policy.AdaptiveThreshold.Enabled,
+				MinThreshold: policy.AdaptiveThreshold.MinThreshold,
+				EWMAAlpha:    policy.AdaptiveThreshold.EWMAAlpha,
+			},
+		}
+	}
+
+	return proxy.TenancyOptions{
+		Enabled:       cfg.Tenancy.Enabled,
+		Header:        cfg.Tenancy.Header,
+		DefaultTenant: cfg.Tenancy.DefaultTenant,
+		Tenants:       tenants,
+	}
+}
+
+func parseReplayOptions(cfg *config.Config) proxy.ReplayOptions {
+	return proxy.ReplayOptions{
+		Enabled:       cfg.Replay.Enabled,
+		StoragePath:   cfg.Replay.StoragePath,
+		MaxFileSizeMB: cfg.Replay.MaxFileSizeMB,
+		MaxFiles:      cfg.Replay.MaxFiles,
+		CaptureEvents: proxy.ReplayCaptureEventsOptions{
+			Block:     cfg.Replay.CaptureEvents.Block,
+			RateLimit: cfg.Replay.CaptureEvents.RateLimit,
+			ScanError: cfg.Replay.CaptureEvents.ScanError,
+			Flag:      cfg.Replay.CaptureEvents.Flag,
+		},
+		RedactPromptContent: cfg.Replay.RedactPromptContent,
+		MaxPromptChars:      cfg.Replay.MaxPromptChars,
+	}
+}
+
+func parseMarketplaceOptions(cfg *config.Config) proxy.MarketplaceOptions {
+	return proxy.MarketplaceOptions{
+		Enabled:                cfg.Marketplace.Enabled,
+		IndexURL:               cfg.Marketplace.IndexURL,
+		CacheDir:               cfg.Marketplace.CacheDir,
+		InstallDir:             cfg.Marketplace.InstallDir,
+		RefreshIntervalMinutes: cfg.Marketplace.RefreshIntervalMinutes,
+		RequireChecksum:        cfg.Marketplace.RequireChecksum,
+	}
 }

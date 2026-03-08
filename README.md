@@ -111,7 +111,10 @@ PIF addresses this critical gap by providing a **transparent, low-latency detect
 - **Health check endpoint** (`/healthz`)
 - **Prometheus metrics endpoint** (`/metrics`)
 - **Embedded monitoring dashboard + custom rule management** (`/dashboard`, optional)
-- **Real-time alerting (Webhook + Slack)** with async fail-open delivery
+- **Real-time alerting (Webhook + Slack + PagerDuty)** with async fail-open delivery
+- **Multi-tenant runtime policies** via `X-PIF-Tenant` + config map
+- **Replay/forensics capture** with local JSONL store and dashboard rescan
+- **Community rule marketplace** (`pif marketplace list|install|update`)
 - **golangci-lint** and race-condition-tested CI
 
 </td>
@@ -171,7 +174,7 @@ prompt-injection-firewall/
 │   ├── firewall/         # Backward-compatible CLI/proxy binary entry point
 │   └── webhook/          # Kubernetes validating admission webhook binary
 ├── internal/
-│   └── cli/              # CLI commands (scan, proxy, rules, version)
+│   └── cli/              # CLI commands (scan, proxy, rules, marketplace, version)
 ├── pkg/
 │   ├── detector/         # Detection engine (regex, ML/ONNX, ensemble, types)
 │   ├── proxy/            # HTTP reverse proxy, middleware, API adapters
@@ -402,6 +405,19 @@ pif rules list
 pif rules validate rules/
 ```
 
+### Marketplace Commands
+
+```bash
+# List available community packages
+pif marketplace list
+
+# Install a specific package version
+pif marketplace install community-rule@1.2.0
+
+# Update installed packages to latest available versions
+pif marketplace update
+```
+
 ---
 
 ## Proxy Mode
@@ -551,10 +567,75 @@ alerting:
     timeout: "3s"
     max_retries: 3
     backoff_initial_ms: 200
+  pagerduty:
+    enabled: false
+    url: "https://events.pagerduty.com/v2/enqueue"
+    routing_key: ""                   # PagerDuty Events API v2 routing key
+    timeout: "3s"
+    max_retries: 3
+    backoff_initial_ms: 200
+    source: "prompt-injection-firewall"
+    component: "proxy"
+    group: "pif"
+    class: "security"
 
 # Note:
 # - Alert delivery is async and fail-open: request path is never blocked by sink failures.
 # - Initial event scope: block, rate-limit, and scan-error.
+# - PagerDuty sink uses trigger-only Events API v2 payloads in this phase.
+
+# Multi-tenant policy overrides (optional)
+tenancy:
+  enabled: false
+  header: "X-PIF-Tenant"
+  default_tenant: "default"
+  tenants:
+    default:
+      policy:
+        action: "block"
+        threshold: 0.5
+        rate_limit:
+          requests_per_minute: 120
+          burst: 30
+        adaptive_threshold:
+          enabled: true
+          min_threshold: 0.25
+          ewma_alpha: 0.2
+    staging:
+      policy:
+        action: "flag"
+        threshold: 0.7
+        rate_limit:
+          requests_per_minute: 300
+          burst: 60
+
+# Attack replay & forensics (optional)
+replay:
+  enabled: false
+  storage_path: "data/replay/events.jsonl"
+  max_file_size_mb: 50
+  max_files: 5
+  capture_events:
+    block: true
+    rate_limit: true
+    scan_error: true
+    flag: true
+  redact_prompt_content: true
+  max_prompt_chars: 512
+
+# Community marketplace (optional)
+marketplace:
+  enabled: false
+  index_url: ""
+  cache_dir: ".cache/pif-marketplace"
+  install_dir: "rules/community"
+  refresh_interval_minutes: 60
+  require_checksum: true
+
+# Notes:
+# - Replay storage is local JSONL with size-based rotation.
+# - `POST /api/dashboard/replays/{id}/rescan` re-evaluates captured prompts locally (no upstream call).
+# - Marketplace install writes YAML files under `install_dir`; keep that path in `rules.custom_paths` or enable marketplace in proxy runtime.
 
 # Rule file paths
 rules:
@@ -562,6 +643,8 @@ rules:
     - "rules/owasp-llm-top10.yaml"
     - "rules/jailbreak-patterns.yaml"
     - "rules/data-exfil.yaml"
+  custom_paths:
+    - "rules/community"               # Marketplace installs and custom rule sets
 
 # Allowlist (bypass scanning)
 allowlist:
@@ -597,6 +680,15 @@ PIF_ALERTING_WEBHOOK_URL=https://alerts.example.com/pif
 PIF_ALERTING_WEBHOOK_AUTH_BEARER_TOKEN=replace-me
 PIF_ALERTING_SLACK_ENABLED=true
 PIF_ALERTING_SLACK_INCOMING_WEBHOOK_URL=https://hooks.slack.com/services/T000/B000/XXX
+PIF_ALERTING_PAGERDUTY_ENABLED=true
+PIF_ALERTING_PAGERDUTY_ROUTING_KEY=replace-with-routing-key
+PIF_ALERTING_PAGERDUTY_SOURCE=prompt-injection-firewall
+PIF_TENANCY_ENABLED=true
+PIF_TENANCY_HEADER=X-PIF-Tenant
+PIF_REPLAY_ENABLED=true
+PIF_REPLAY_STORAGE_PATH=data/replay/events.jsonl
+PIF_MARKETPLACE_ENABLED=true
+PIF_MARKETPLACE_INDEX_URL=https://example.com/index.json
 PIF_LOGGING_LEVEL=debug
 ```
 
@@ -740,10 +832,10 @@ Automated quality gates on every push and pull request:
 - [x] Web-based read-only dashboard UI for monitoring (MVP)
 - [x] Dashboard rule management (write/edit workflows)
 - [x] Real-time alerting: Webhook + Slack (MVP)
-- [ ] Real-time alerting: PagerDuty sink
-- [ ] Multi-tenant support with per-tenant policies
-- [ ] Attack replay and forensic analysis tools
-- [ ] Community rule marketplace
+- [x] Real-time alerting: PagerDuty sink (trigger-only MVP)
+- [x] Multi-tenant support with per-tenant policies
+- [x] Attack replay and forensic analysis tools
+- [x] Community rule marketplace
 
 ---
 

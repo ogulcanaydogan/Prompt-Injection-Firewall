@@ -27,6 +27,7 @@ OWASP LLM Top 10.`,
 
 	root.AddCommand(newScanCmd())
 	root.AddCommand(newRulesCmd())
+	root.AddCommand(newMarketplaceCmd())
 	root.AddCommand(newProxyCmd())
 	root.AddCommand(newVersionCmd())
 

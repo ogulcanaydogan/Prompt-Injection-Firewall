@@ -62,14 +62,16 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 		opts.Threshold = 0.5
 	}
 
-	var limiter *perClientRateLimiter
-	if opts.RateLimit.Enabled {
-		limiter = newPerClientRateLimiter(opts.RateLimit)
-	}
-	adaptive := newAdaptiveThresholdState(opts.AdaptiveThreshold)
+	tenancy := newTenancyResolver(opts.Tenancy, action, opts.Threshold, opts.RateLimit, opts.AdaptiveThreshold)
+	limiterStore := newTenantRateLimiterStore()
+	adaptiveStore := newTenantAdaptiveStore()
 	publisher := opts.AlertPublisher
 	if publisher == nil {
 		publisher = NewNoopAlertPublisher()
+	}
+	replayStore := opts.ReplayStore
+	if replayStore == nil {
+		replayStore = NewNoopReplayStore()
 	}
 	alertingEnabled := opts.Alerting.Enabled
 	var rateLimitAlerts *alertWindowAggregator
@@ -85,19 +87,21 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			actionLabel := actionString(action)
+			tenantPolicy := tenancy.resolve(r)
+			actionLabel := actionString(tenantPolicy.Action)
+			tenant := tenantPolicy.Tenant
 			outcome := "forwarded"
 			defer func() {
-				opts.Metrics.ObserveHTTPRequest(r.Method, actionLabel, outcome)
+				opts.Metrics.ObserveHTTPRequestForTenant(r.Method, actionLabel, outcome, tenant)
 			}()
 
-			clientKey := requestKeyFromRequest(r, opts.RateLimit.KeyHeader)
-			if limiter != nil {
-				if !limiter.allow(clientKey) {
+			clientKey := requestKeyFromRequest(r, tenantPolicy.RateLimit.KeyHeader)
+			if tenantPolicy.RateLimit.Enabled {
+				if !limiterStore.allow(tenant, clientKey, tenantPolicy.RateLimit) {
 					outcome = "rate_limited"
-					opts.Metrics.IncRateLimitEvent("exceeded")
+					opts.Metrics.IncRateLimitEventForTenant("exceeded", tenant)
 					if alertingEnabled && opts.Alerting.Events.RateLimit {
-						if emit, aggregateCount := rateLimitAlerts.Record("rate_limit:"+clientKey+":exceeded", time.Now().UTC()); emit {
+						if emit, aggregateCount := rateLimitAlerts.Record("rate_limit:"+tenant+":"+clientKey+":exceeded", time.Now().UTC()); emit {
 							publisher.Publish(AlertEvent{
 								Timestamp:      time.Now().UTC(),
 								EventType:      AlertEventRateLimit,
@@ -110,6 +114,19 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 								AggregateCount: aggregateCount,
 							})
 						}
+					}
+					if opts.Replay.Enabled && opts.Replay.CaptureEvents.RateLimit {
+						recordReplayEvent(logger, replayStore, ReplayCaptureInput{
+							Tenant:    tenant,
+							EventType: ReplayEventTypeRateLimit,
+							Decision:  "rate_limited",
+							RequestMeta: ReplayRequestMeta{
+								Method:    r.Method,
+								Path:      r.URL.Path,
+								Target:    opts.Alerting.TargetURL,
+								ClientKey: clientKey,
+							},
+						})
 					}
 					writeRateLimitResponse(w)
 					return
@@ -167,14 +184,9 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 				}
 			}
 
-			effectiveThreshold := opts.Threshold
-			if adaptive != nil {
-				effectiveThreshold = adaptive.effectiveThreshold(clientKey, opts.Threshold)
-			}
+			effectiveThreshold := adaptiveStore.effectiveThreshold(tenant, clientKey, tenantPolicy.Threshold, tenantPolicy.AdaptiveThreshold)
 			isInjection := len(allFindings) > 0 && maxScore >= effectiveThreshold
-			if adaptive != nil {
-				adaptive.update(clientKey, isInjection)
-			}
+			adaptiveStore.update(tenant, clientKey, isInjection, tenantPolicy.AdaptiveThreshold)
 
 			scanOutcome := "clean"
 			if isInjection {
@@ -185,7 +197,7 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 				scanOutcome = "scan_error"
 			}
 			if scanErrors > 0 && alertingEnabled && opts.Alerting.Events.ScanError {
-				key := "scan_error:" + clientKey + ":" + r.URL.Path
+				key := "scan_error:" + tenant + ":" + clientKey + ":" + r.URL.Path
 				if emit, aggregateCount := scanErrorAlerts.Record(key, time.Now().UTC()); emit {
 					publisher.Publish(AlertEvent{
 						Timestamp:      time.Now().UTC(),
@@ -200,11 +212,29 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 					})
 				}
 			}
+			if scanErrors > 0 && opts.Replay.Enabled && opts.Replay.CaptureEvents.ScanError {
+				recordReplayEvent(logger, replayStore, ReplayCaptureInput{
+					Tenant:    tenant,
+					EventType: ReplayEventTypeScanError,
+					Decision:  "scan_error",
+					Score:     maxScore,
+					Threshold: effectiveThreshold,
+					Findings:  allFindings,
+					RequestMeta: ReplayRequestMeta{
+						Method:    r.Method,
+						Path:      r.URL.Path,
+						Target:    opts.Alerting.TargetURL,
+						ClientKey: clientKey,
+					},
+					Body:   body,
+					Inputs: inputs,
+				})
+			}
 			opts.Metrics.ObserveScanDuration(time.Since(scanStart).Seconds(), scanOutcome)
 			opts.Metrics.ObserveDetectionScore(maxScore, scanOutcome)
 
 			if isInjection {
-				opts.Metrics.IncInjectionDetection(actionLabel)
+				opts.Metrics.IncInjectionDetectionForTenant(actionLabel, tenant)
 				logger.Warn("injection detected",
 					"score", maxScore,
 					"threshold", effectiveThreshold,
@@ -212,7 +242,7 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 					"action", actionLabel,
 				)
 
-				switch action {
+				switch tenantPolicy.Action {
 				case ActionBlock:
 					outcome = "blocked"
 					if alertingEnabled && opts.Alerting.Events.Block {
@@ -232,12 +262,48 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 							AggregateCount: 1,
 						})
 					}
+					if opts.Replay.Enabled && opts.Replay.CaptureEvents.Block {
+						recordReplayEvent(logger, replayStore, ReplayCaptureInput{
+							Tenant:    tenant,
+							EventType: ReplayEventTypeBlock,
+							Decision:  "block",
+							Score:     maxScore,
+							Threshold: effectiveThreshold,
+							Findings:  allFindings,
+							RequestMeta: ReplayRequestMeta{
+								Method:    r.Method,
+								Path:      r.URL.Path,
+								Target:    opts.Alerting.TargetURL,
+								ClientKey: clientKey,
+							},
+							Body:   body,
+							Inputs: inputs,
+						})
+					}
 					writeBlockResponse(w, maxScore, allFindings)
 					return
 				case ActionFlag:
 					outcome = "flagged"
 					w.Header().Set("X-PIF-Flagged", "true")
 					w.Header().Set("X-PIF-Score", formatScore(maxScore))
+					if opts.Replay.Enabled && opts.Replay.CaptureEvents.Flag {
+						recordReplayEvent(logger, replayStore, ReplayCaptureInput{
+							Tenant:    tenant,
+							EventType: ReplayEventTypeFlag,
+							Decision:  "flag",
+							Score:     maxScore,
+							Threshold: effectiveThreshold,
+							Findings:  allFindings,
+							RequestMeta: ReplayRequestMeta{
+								Method:    r.Method,
+								Path:      r.URL.Path,
+								Target:    opts.Alerting.TargetURL,
+								ClientKey: clientKey,
+							},
+							Body:   body,
+							Inputs: inputs,
+						})
+					}
 				case ActionLog:
 					outcome = "logged"
 					// just log, already done above
@@ -248,6 +314,15 @@ func ScanMiddlewareWithOptions(d detector.Detector, action Action, opts Middlewa
 
 			next.ServeHTTP(w, r)
 		})
+	}
+}
+
+func recordReplayEvent(logger *slog.Logger, store ReplayStore, input ReplayCaptureInput) {
+	if store == nil || !store.Enabled() {
+		return
+	}
+	if err := store.Record(input); err != nil {
+		ensureLogger(logger).Warn("replay event persistence failed", "event_type", input.EventType, "error", err)
 	}
 }
 

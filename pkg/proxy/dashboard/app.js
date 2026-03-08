@@ -10,6 +10,8 @@ const historyState = {
 const appState = {
   editingRuleID: "",
   latestRules: [],
+  latestReplays: [],
+  selectedReplayID: "",
   ruleManagement: {
     enabled: false,
     writable: false,
@@ -35,6 +37,9 @@ const managedPathText = document.getElementById("managed-path");
 const ruleWriteNote = document.getElementById("rule-write-note");
 const ruleSaveBtn = document.getElementById("rule-save-btn");
 const ruleClearBtn = document.getElementById("rule-clear-btn");
+const replayStatus = document.getElementById("replay-status");
+const replayBody = document.getElementById("replays-body");
+const replayDetail = document.getElementById("replay-detail");
 
 refreshPill.textContent = `Refresh: ${refreshSeconds}s`;
 
@@ -56,6 +61,24 @@ async function fetchJSON(path, options = {}) {
     return null;
   }
 
+  return response.json();
+}
+
+async function fetchOptionalJSON(path, options = {}) {
+  const response = await fetch(path, {
+    headers: {
+      Accept: "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `${response.status} ${response.statusText}`);
+  }
   return response.json();
 }
 
@@ -111,16 +134,18 @@ function renderRules(ruleSets) {
   if (!tbody) return;
 
   if (!Array.isArray(ruleSets) || ruleSets.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3">No rule set metadata available.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4">No rule set metadata available.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = ruleSets
     .map((rs) => {
       const version = rs.version || "-";
+      const source = rs.source || "builtin";
       return `<tr>
         <td>${escapeHtml(rs.name || "-")}</td>
         <td>${escapeHtml(version)}</td>
+        <td>${escapeHtml(source)}</td>
         <td>${Number(rs.rule_count || 0)}</td>
       </tr>`;
     })
@@ -314,12 +339,96 @@ async function onManagedRuleAction(event) {
   }
 }
 
+function renderReplays(payload) {
+  if (!replayBody) return;
+
+  const events = Array.isArray(payload?.events) ? payload.events : [];
+  appState.latestReplays = events;
+
+  if (!payload) {
+    replayStatus.textContent = "Replay disabled";
+    replayBody.innerHTML = `<tr><td colspan="5">Replay capture is disabled.</td></tr>`;
+    replayDetail.textContent = "Replay endpoints are not available.";
+    return;
+  }
+
+  replayStatus.textContent = `Replay events: ${events.length}`;
+  if (events.length === 0) {
+    replayBody.innerHTML = `<tr><td colspan="5">No replay events captured yet.</td></tr>`;
+    if (!appState.selectedReplayID) {
+      replayDetail.textContent = "No replay event selected.";
+    }
+    return;
+  }
+
+  replayBody.innerHTML = events
+    .map((event) => {
+      const isSelected = event.replay_id === appState.selectedReplayID;
+      return `<tr class="${isSelected ? "selected-row" : ""}">
+        <td>${escapeHtml(event.replay_id)}</td>
+        <td>${escapeHtml(event.tenant || "-")}</td>
+        <td>${escapeHtml(event.event_type || "-")}</td>
+        <td>${escapeHtml(event.decision || "-")}</td>
+        <td>
+          <button type="button" data-action="inspect" data-id="${escapeHtml(event.replay_id)}">Inspect</button>
+          <button type="button" data-action="rescan" data-id="${escapeHtml(event.replay_id)}">Rescan</button>
+        </td>
+      </tr>`;
+    })
+    .join("");
+}
+
+async function inspectReplay(id) {
+  try {
+    const payload = await fetchJSON(`${apiPrefix}/replays/${encodeURIComponent(id)}`);
+    appState.selectedReplayID = id;
+    replayDetail.textContent = JSON.stringify(payload, null, 2);
+    renderReplays({ events: appState.latestReplays });
+  } catch (error) {
+    setErrorStatus(`Degraded: ${error.message}`);
+  }
+}
+
+async function rescanReplay(id) {
+  try {
+    const payload = await fetchJSON(`${apiPrefix}/replays/${encodeURIComponent(id)}/rescan`, {
+      method: "POST",
+    });
+    appState.selectedReplayID = id;
+    replayDetail.textContent = JSON.stringify(payload, null, 2);
+    renderReplays({ events: appState.latestReplays });
+  } catch (error) {
+    setErrorStatus(`Degraded: ${error.message}`);
+  }
+}
+
+async function onReplayAction(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) {
+    return;
+  }
+  const action = target.dataset.action;
+  const id = target.dataset.id;
+  if (!action || !id) {
+    return;
+  }
+
+  if (action === "inspect") {
+    await inspectReplay(id);
+    return;
+  }
+  if (action === "rescan") {
+    await rescanReplay(id);
+  }
+}
+
 async function refreshDashboard() {
   try {
-    const [summary, metrics, rules] = await Promise.all([
+    const [summary, metrics, rules, replays] = await Promise.all([
       fetchJSON(`${apiPrefix}/summary`),
       fetchJSON(`${apiPrefix}/metrics`),
       fetchJSON(`${apiPrefix}/rules`),
+      fetchOptionalJSON(`${apiPrefix}/replays?limit=20`),
     ]);
 
     fields.totalRequests.textContent = Number(summary?.totals?.requests || 0).toLocaleString();
@@ -337,6 +446,7 @@ async function refreshDashboard() {
     renderRules(rules?.rule_sets || []);
     updateRuleManagementStatus(rules || {});
     renderManagedRules(rules?.managed_rules || []);
+    renderReplays(replays);
 
     setHealthyStatus(`Live - uptime ${Math.max(0, Number(summary?.uptime_seconds || 0))}s`);
   } catch (error) {
@@ -347,6 +457,7 @@ async function refreshDashboard() {
 ruleForm.addEventListener("submit", submitRuleForm);
 ruleClearBtn.addEventListener("click", () => resetRuleForm());
 managedRulesBody.addEventListener("click", onManagedRuleAction);
+replayBody.addEventListener("click", onReplayAction);
 
 resetRuleForm();
 refreshDashboard();

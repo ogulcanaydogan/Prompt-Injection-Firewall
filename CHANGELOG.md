@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Alert event emission for `injection_blocked`, `rate_limit_exceeded`, and `scan_error`
   - Generic webhook sink with optional Bearer token and Slack Incoming Webhook sink
   - Alerting config/env surface: `alerting.*` and `PIF_ALERTING_*`
+- **Phase 3 Step 4 -- PagerDuty Sink (Trigger-only)**
+  - PagerDuty Events API v2 sink integration with sequential fail-open dispatch
+  - Trigger payload mapping with severity conversion and full `custom_details` projection
+  - Config/env surface for `alerting.pagerduty.*` and `PIF_ALERTING_PAGERDUTY_*`
+- **Phase 3 Full Closure -- Multi-tenant + Replay/Forensics + Community Marketplace**
+  - Tenant-aware runtime policy resolution via `X-PIF-Tenant` with per-tenant action/threshold/rate-limit/adaptive overrides
+  - Replay/forensics local JSONL store with rotation, redaction, dashboard list/detail/rescan APIs
+  - Dashboard replay panel and tenant breakdown in summary/metrics views
+  - Community marketplace CLI (`pif marketplace list|install|update`) with checksum-verified installs
+  - Rule loader support for directory-based custom paths and marketplace source metadata in dashboard rule inventory
+  - Config/env surface additions:
+    - `tenancy.*` / `PIF_TENANCY_*`
+    - `replay.*` / `PIF_REPLAY_*`
+    - `marketplace.*` / `PIF_MARKETPLACE_*`
 
 ## [1.2.0] - 2026-03-07
 

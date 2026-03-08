@@ -27,6 +27,7 @@ func TestNewRootCmd_HasSubcommands(t *testing.T) {
 	assert.True(t, subcommands["scan"], "should have scan subcommand")
 	assert.True(t, subcommands["proxy"], "should have proxy subcommand")
 	assert.True(t, subcommands["rules"], "should have rules subcommand")
+	assert.True(t, subcommands["marketplace"], "should have marketplace subcommand")
 	assert.True(t, subcommands["version"], "should have version subcommand")
 }
 

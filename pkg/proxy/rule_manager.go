@@ -42,10 +42,11 @@ type RuleManager interface {
 
 // RuntimeRuleManagerOptions controls runtime rule manager initialization.
 type RuntimeRuleManagerOptions struct {
-	RulePaths         []string
-	CustomPaths       []string
-	ManagedCustomPath string
-	DetectorFactory   DetectorFactory
+	RulePaths             []string
+	CustomPaths           []string
+	ManagedCustomPath     string
+	MarketplaceInstallDir string
+	DetectorFactory       DetectorFactory
 }
 
 // HotSwappableDetector forwards scan operations to a detector instance that can
@@ -102,6 +103,7 @@ type RuntimeRuleManager struct {
 	rulePaths       []string
 	customPaths     []string
 	managedPath     string
+	marketplaceDir  string
 	managedRuleSet  rules.RuleSet
 	inventory       []RuleSetInfo
 	totalRules      int
@@ -131,6 +133,7 @@ func NewRuntimeRuleManager(opts RuntimeRuleManagerOptions) (*RuntimeRuleManager,
 		rulePaths:       dedupeNonEmptyPaths(opts.RulePaths),
 		customPaths:     customPaths,
 		managedPath:     managedPath,
+		marketplaceDir:  strings.TrimSpace(opts.MarketplaceInstallDir),
 		managedRuleSet:  defaultManagedRuleSet(),
 	}
 
@@ -289,23 +292,42 @@ func (m *RuntimeRuleManager) loadAllRuleSets(managed rules.RuleSet) ([]rules.Rul
 			ensureManagedRuleSetMetadata(&managedCopy)
 			sets = append(sets, managedCopy)
 			enabled := enabledRuleCount(managedCopy.Rules)
-			inventory = append(inventory, RuleSetInfo{Name: managedCopy.Name, Version: managedCopy.Version, RuleCount: enabled})
+			inventory = append(inventory, RuleSetInfo{
+				Name:      managedCopy.Name,
+				Version:   managedCopy.Version,
+				RuleCount: enabled,
+				Source:    "managed_custom",
+				Path:      m.managedPath,
+			})
 			totalEnabled += enabled
 			continue
 		}
 
-		rs, _, err := loadRuleSetWithFallback(p)
+		loaded, loadedPaths, err := loadRuleSetsWithFallback(p)
 		if err != nil {
 			if isNotExist(err) && containsPath(m.customPaths, p) {
 				continue
 			}
 			return nil, nil, 0, fmt.Errorf("loading rule set %s: %w", p, err)
 		}
-
-		sets = append(sets, *rs)
-		enabled := enabledRuleCount(rs.Rules)
-		inventory = append(inventory, RuleSetInfo{Name: rs.Name, Version: rs.Version, RuleCount: enabled})
-		totalEnabled += enabled
+		for idx := range loaded {
+			rs := loaded[idx]
+			srcPath := loadedPaths[idx]
+			sets = append(sets, rs)
+			enabled := enabledRuleCount(rs.Rules)
+			info := RuleSetInfo{
+				Name:      rs.Name,
+				Version:   rs.Version,
+				RuleCount: enabled,
+				Source:    classifyRuleSetSource(p, srcPath, m),
+				Path:      srcPath,
+			}
+			if info.Source == "marketplace" {
+				info.Metadata = marketplaceMetadataForRulePath(srcPath)
+			}
+			inventory = append(inventory, info)
+			totalEnabled += enabled
+		}
 	}
 
 	if len(sets) == 0 {
@@ -342,6 +364,109 @@ func loadRuleSetWithFallback(path string) (*rules.RuleSet, string, error) {
 		lastErr = fmt.Errorf("failed to load rule set: %s", path)
 	}
 	return nil, "", lastErr
+}
+
+func loadRuleSetsWithFallback(path string) ([]rules.RuleSet, []string, error) {
+	candidates := []string{path}
+	if !filepath.IsAbs(path) {
+		candidates = append(candidates, filepath.Join("/etc/pif", path))
+	}
+
+	var lastErr error
+	for _, candidate := range candidates {
+		sets, paths, err := loadRuleSetsFromPath(candidate)
+		if err == nil {
+			return sets, paths, nil
+		}
+		lastErr = err
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("failed to load rule set(s): %s", path)
+	}
+	return nil, nil, lastErr
+}
+
+func loadRuleSetsFromPath(path string) ([]rules.RuleSet, []string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if !info.IsDir() {
+		rs, err := rules.LoadFile(path)
+		if err != nil {
+			return nil, nil, err
+		}
+		return []rules.RuleSet{*rs}, []string{path}, nil
+	}
+
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	sets := make([]rules.RuleSet, 0)
+	paths := make([]string, 0)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := strings.ToLower(entry.Name())
+		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
+			continue
+		}
+		filePath := filepath.Join(path, entry.Name())
+		rs, err := rules.LoadFile(filePath)
+		if err != nil {
+			return nil, nil, err
+		}
+		sets = append(sets, *rs)
+		paths = append(paths, filePath)
+	}
+	if len(sets) == 0 {
+		return nil, nil, fmt.Errorf("no yaml rule files found in %s", path)
+	}
+
+	return sets, paths, nil
+}
+
+func classifyRuleSetSource(configuredPath, loadedPath string, m *RuntimeRuleManager) string {
+	if configuredPath == m.managedPath {
+		return "managed_custom"
+	}
+	marketDir := strings.TrimSpace(m.marketplaceDir)
+	if marketDir != "" {
+		if absMarketDir, err := filepath.Abs(marketDir); err == nil {
+			if absLoaded, err := filepath.Abs(loadedPath); err == nil {
+				if strings.HasPrefix(absLoaded, absMarketDir+string(os.PathSeparator)) || absLoaded == absMarketDir {
+					return "marketplace"
+				}
+			}
+		}
+	}
+	if containsPath(m.customPaths, configuredPath) {
+		return "custom"
+	}
+	return "builtin"
+}
+
+func marketplaceMetadataForRulePath(path string) map[string]interface{} {
+	base := filepath.Base(path)
+	ext := filepath.Ext(base)
+	name := strings.TrimSuffix(base, ext)
+	parts := strings.Split(name, "_")
+	if len(parts) < 2 {
+		return map[string]interface{}{
+			"file": base,
+		}
+	}
+	version := parts[len(parts)-1]
+	id := strings.Join(parts[:len(parts)-1], "_")
+	return map[string]interface{}{
+		"id":      id,
+		"version": version,
+		"file":    base,
+	}
 }
 
 func writeRuleSetAtomic(path string, rs rules.RuleSet) error {

@@ -55,6 +55,7 @@ func StartServer(opts ServerOptions, d detector.Detector) error {
 		Metrics:           opts.Metrics,
 		RateLimit:         opts.RateLimit,
 		AdaptiveThreshold: opts.AdaptiveThreshold,
+		Tenancy:           opts.Tenancy,
 		Alerting: AlertingRuntimeOptions{
 			Enabled:        opts.Alerting.Enabled,
 			Events:         opts.Alerting.Events,
@@ -62,6 +63,8 @@ func StartServer(opts ServerOptions, d detector.Detector) error {
 			TargetURL:      opts.TargetURL,
 		},
 		AlertPublisher: alertPublisher,
+		Replay:         opts.Replay,
+		ReplayStore:    opts.ReplayStore,
 	})
 	handler := middleware(proxy)
 

@@ -139,6 +139,16 @@ func TestParseAlertingOptions(t *testing.T) {
 	cfg.Alerting.Slack.Timeout = "4s"
 	cfg.Alerting.Slack.MaxRetries = 2
 	cfg.Alerting.Slack.BackoffInitialMs = 300
+	cfg.Alerting.PagerDuty.Enabled = true
+	cfg.Alerting.PagerDuty.URL = "https://events.pagerduty.com/v2/enqueue"
+	cfg.Alerting.PagerDuty.RoutingKey = "pd-key"
+	cfg.Alerting.PagerDuty.Timeout = "6s"
+	cfg.Alerting.PagerDuty.MaxRetries = 5
+	cfg.Alerting.PagerDuty.BackoffInitialMs = 350
+	cfg.Alerting.PagerDuty.Source = "pif-prod"
+	cfg.Alerting.PagerDuty.Component = "proxy-main"
+	cfg.Alerting.PagerDuty.Group = "secops"
+	cfg.Alerting.PagerDuty.Class = "firewall"
 
 	opts, err := parseAlertingOptions(cfg)
 	require.NoError(t, err)
@@ -160,6 +170,16 @@ func TestParseAlertingOptions(t *testing.T) {
 	assert.Equal(t, 4*time.Second, opts.Slack.Timeout)
 	assert.Equal(t, 2, opts.Slack.MaxRetries)
 	assert.Equal(t, 300*time.Millisecond, opts.Slack.BackoffInitial)
+	assert.True(t, opts.PagerDuty.Enabled)
+	assert.Equal(t, "https://events.pagerduty.com/v2/enqueue", opts.PagerDuty.URL)
+	assert.Equal(t, "pd-key", opts.PagerDuty.RoutingKey)
+	assert.Equal(t, 6*time.Second, opts.PagerDuty.Timeout)
+	assert.Equal(t, 5, opts.PagerDuty.MaxRetries)
+	assert.Equal(t, 350*time.Millisecond, opts.PagerDuty.BackoffInitial)
+	assert.Equal(t, "pif-prod", opts.PagerDuty.Source)
+	assert.Equal(t, "proxy-main", opts.PagerDuty.Component)
+	assert.Equal(t, "secops", opts.PagerDuty.Group)
+	assert.Equal(t, "firewall", opts.PagerDuty.Class)
 }
 
 func TestParseAlertingOptions_InvalidTimeout(t *testing.T) {
@@ -175,6 +195,78 @@ func TestParseAlertingOptions_InvalidTimeout(t *testing.T) {
 	_, err = parseAlertingOptions(cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parsing alerting.slack.timeout")
+
+	cfg = config.Default()
+	cfg.Alerting.PagerDuty.Timeout = "bad"
+	_, err = parseAlertingOptions(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parsing alerting.pagerduty.timeout")
+}
+
+func TestParseTenancyReplayAndMarketplaceOptions(t *testing.T) {
+	cfg := config.Default()
+	cfg.Tenancy.Enabled = true
+	cfg.Tenancy.Header = "X-Tenant"
+	cfg.Tenancy.DefaultTenant = "default"
+	adaptiveEnabled := false
+	cfg.Tenancy.Tenants = map[string]config.TenantConfig{
+		"team-a": {
+			Policy: config.TenantPolicyConfig{
+				Action:    "flag",
+				Threshold: 0.72,
+				RateLimit: config.TenantRateLimitConfig{
+					RequestsPerMinute: 40,
+					Burst:             10,
+				},
+				AdaptiveThreshold: config.TenantAdaptiveThresholdOverrideConfig{
+					Enabled:      &adaptiveEnabled,
+					MinThreshold: 0.3,
+					EWMAAlpha:    0.5,
+				},
+			},
+		},
+	}
+	cfg.Replay.Enabled = true
+	cfg.Replay.StoragePath = "tmp/replay.jsonl"
+	cfg.Replay.MaxFileSizeMB = 12
+	cfg.Replay.MaxFiles = 2
+	cfg.Replay.CaptureEvents.Flag = false
+	cfg.Replay.RedactPromptContent = false
+	cfg.Replay.MaxPromptChars = 128
+	cfg.Marketplace.Enabled = true
+	cfg.Marketplace.IndexURL = "https://example.com/index.json"
+	cfg.Marketplace.CacheDir = ".cache/mp"
+	cfg.Marketplace.InstallDir = "rules/community"
+	cfg.Marketplace.RefreshIntervalMinutes = 15
+	cfg.Marketplace.RequireChecksum = false
+
+	tenancy := parseTenancyOptions(cfg)
+	require.True(t, tenancy.Enabled)
+	assert.Equal(t, "X-Tenant", tenancy.Header)
+	assert.Equal(t, "default", tenancy.DefaultTenant)
+	require.Contains(t, tenancy.Tenants, "team-a")
+	assert.Equal(t, "flag", tenancy.Tenants["team-a"].Action)
+	require.NotNil(t, tenancy.Tenants["team-a"].AdaptiveThreshold.Enabled)
+	assert.False(t, *tenancy.Tenants["team-a"].AdaptiveThreshold.Enabled)
+	assert.Equal(t, 0.3, tenancy.Tenants["team-a"].AdaptiveThreshold.MinThreshold)
+	assert.Equal(t, 0.5, tenancy.Tenants["team-a"].AdaptiveThreshold.EWMAAlpha)
+
+	replay := parseReplayOptions(cfg)
+	assert.True(t, replay.Enabled)
+	assert.Equal(t, "tmp/replay.jsonl", replay.StoragePath)
+	assert.Equal(t, 12, replay.MaxFileSizeMB)
+	assert.Equal(t, 2, replay.MaxFiles)
+	assert.False(t, replay.CaptureEvents.Flag)
+	assert.False(t, replay.RedactPromptContent)
+	assert.Equal(t, 128, replay.MaxPromptChars)
+
+	market := parseMarketplaceOptions(cfg)
+	assert.True(t, market.Enabled)
+	assert.Equal(t, "https://example.com/index.json", market.IndexURL)
+	assert.Equal(t, ".cache/mp", market.CacheDir)
+	assert.Equal(t, "rules/community", market.InstallDir)
+	assert.Equal(t, 15, market.RefreshIntervalMinutes)
+	assert.False(t, market.RequireChecksum)
 }
 
 func testContext(t *testing.T) context.Context {
