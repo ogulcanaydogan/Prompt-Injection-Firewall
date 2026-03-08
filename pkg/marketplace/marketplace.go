@@ -322,7 +322,7 @@ func listInstalled(installDir string) (map[string]string, error) {
 			continue
 		}
 		name := strings.ToLower(entry.Name())
-		if !(strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) {
+		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
 			continue
 		}
 		id, version, err := parseInstalledFile(entry.Name())

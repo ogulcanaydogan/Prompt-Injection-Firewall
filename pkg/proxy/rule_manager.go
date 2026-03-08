@@ -412,7 +412,7 @@ func loadRuleSetsFromPath(path string) ([]rules.RuleSet, []string, error) {
 			continue
 		}
 		name := strings.ToLower(entry.Name())
-		if !(strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) {
+		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
 			continue
 		}
 		filePath := filepath.Join(path, entry.Name())
