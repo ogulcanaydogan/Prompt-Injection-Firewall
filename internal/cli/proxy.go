@@ -78,6 +78,10 @@ func runProxy(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("parsing proxy.write_timeout: %w", err)
 	}
+	alertingOptions, err := parseAlertingOptions(cfg)
+	if err != nil {
+		return err
+	}
 
 	detectorFactory := buildProxyDetectorFactory(cfg, modelPath)
 	ruleManager, err := proxy.NewRuntimeRuleManager(proxy.RuntimeRuleManagerOptions{
@@ -146,6 +150,7 @@ func runProxy(cmd *cobra.Command, args []string) error {
 		},
 		RuleInventory: ruleSnapshot.RuleSets,
 		RuleManager:   ruleManager,
+		Alerting:      alertingOptions,
 	}, ruleManager.Detector())
 }
 
@@ -201,4 +206,45 @@ func buildProxyDetectorFactory(cfg *config.Config, modelPath string) proxy.Detec
 
 		return ensemble, nil
 	}
+}
+
+func parseAlertingOptions(cfg *config.Config) (proxy.AlertingOptions, error) {
+	webhookTimeout, err := time.ParseDuration(cfg.Alerting.Webhook.Timeout)
+	if err != nil {
+		return proxy.AlertingOptions{}, fmt.Errorf("parsing alerting.webhook.timeout: %w", err)
+	}
+	slackTimeout, err := time.ParseDuration(cfg.Alerting.Slack.Timeout)
+	if err != nil {
+		return proxy.AlertingOptions{}, fmt.Errorf("parsing alerting.slack.timeout: %w", err)
+	}
+	throttleWindow := time.Duration(cfg.Alerting.Throttle.WindowSeconds) * time.Second
+	if throttleWindow <= 0 {
+		throttleWindow = 60 * time.Second
+	}
+
+	return proxy.AlertingOptions{
+		Enabled:   cfg.Alerting.Enabled,
+		QueueSize: cfg.Alerting.QueueSize,
+		Events: proxy.AlertingEventOptions{
+			Block:     cfg.Alerting.Events.Block,
+			RateLimit: cfg.Alerting.Events.RateLimit,
+			ScanError: cfg.Alerting.Events.ScanError,
+		},
+		ThrottleWindow: throttleWindow,
+		Webhook: proxy.AlertingSinkOptions{
+			Enabled:         cfg.Alerting.Webhook.Enabled,
+			URL:             cfg.Alerting.Webhook.URL,
+			Timeout:         webhookTimeout,
+			MaxRetries:      cfg.Alerting.Webhook.MaxRetries,
+			BackoffInitial:  time.Duration(cfg.Alerting.Webhook.BackoffInitialMs) * time.Millisecond,
+			AuthBearerToken: cfg.Alerting.Webhook.AuthBearerToken,
+		},
+		Slack: proxy.AlertingSinkOptions{
+			Enabled:        cfg.Alerting.Slack.Enabled,
+			URL:            cfg.Alerting.Slack.IncomingWebhookURL,
+			Timeout:        slackTimeout,
+			MaxRetries:     cfg.Alerting.Slack.MaxRetries,
+			BackoffInitial: time.Duration(cfg.Alerting.Slack.BackoffInitialMs) * time.Millisecond,
+		},
+	}, nil
 }

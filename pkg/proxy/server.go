@@ -45,6 +45,8 @@ func StartServer(opts ServerOptions, d detector.Detector) error {
 	}
 
 	action := ParseAction(opts.Action)
+	alertPublisher := BuildAlertPublisher(opts.Alerting, logger, opts.Metrics)
+	defer alertPublisher.Close()
 	middleware := ScanMiddlewareWithOptions(d, action, MiddlewareOptions{
 		Threshold:         opts.Threshold,
 		MaxBodySize:       opts.MaxBodySize,
@@ -53,6 +55,13 @@ func StartServer(opts ServerOptions, d detector.Detector) error {
 		Metrics:           opts.Metrics,
 		RateLimit:         opts.RateLimit,
 		AdaptiveThreshold: opts.AdaptiveThreshold,
+		Alerting: AlertingRuntimeOptions{
+			Enabled:        opts.Alerting.Enabled,
+			Events:         opts.Alerting.Events,
+			ThrottleWindow: opts.Alerting.ThrottleWindow,
+			TargetURL:      opts.TargetURL,
+		},
+		AlertPublisher: alertPublisher,
 	})
 	handler := middleware(proxy)
 

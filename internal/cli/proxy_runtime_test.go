@@ -120,6 +120,63 @@ proxy:
 	assert.Contains(t, err.Error(), "parsing proxy.write_timeout")
 }
 
+func TestParseAlertingOptions(t *testing.T) {
+	cfg := config.Default()
+	cfg.Alerting.Enabled = true
+	cfg.Alerting.QueueSize = 256
+	cfg.Alerting.Events.Block = true
+	cfg.Alerting.Events.RateLimit = true
+	cfg.Alerting.Events.ScanError = false
+	cfg.Alerting.Throttle.WindowSeconds = 45
+	cfg.Alerting.Webhook.Enabled = true
+	cfg.Alerting.Webhook.URL = "https://example.com/hook"
+	cfg.Alerting.Webhook.Timeout = "5s"
+	cfg.Alerting.Webhook.MaxRetries = 4
+	cfg.Alerting.Webhook.BackoffInitialMs = 150
+	cfg.Alerting.Webhook.AuthBearerToken = "token"
+	cfg.Alerting.Slack.Enabled = true
+	cfg.Alerting.Slack.IncomingWebhookURL = "https://hooks.slack.test/abc"
+	cfg.Alerting.Slack.Timeout = "4s"
+	cfg.Alerting.Slack.MaxRetries = 2
+	cfg.Alerting.Slack.BackoffInitialMs = 300
+
+	opts, err := parseAlertingOptions(cfg)
+	require.NoError(t, err)
+
+	assert.True(t, opts.Enabled)
+	assert.Equal(t, 256, opts.QueueSize)
+	assert.True(t, opts.Events.Block)
+	assert.True(t, opts.Events.RateLimit)
+	assert.False(t, opts.Events.ScanError)
+	assert.Equal(t, 45*time.Second, opts.ThrottleWindow)
+	assert.True(t, opts.Webhook.Enabled)
+	assert.Equal(t, "https://example.com/hook", opts.Webhook.URL)
+	assert.Equal(t, 5*time.Second, opts.Webhook.Timeout)
+	assert.Equal(t, 4, opts.Webhook.MaxRetries)
+	assert.Equal(t, 150*time.Millisecond, opts.Webhook.BackoffInitial)
+	assert.Equal(t, "token", opts.Webhook.AuthBearerToken)
+	assert.True(t, opts.Slack.Enabled)
+	assert.Equal(t, "https://hooks.slack.test/abc", opts.Slack.URL)
+	assert.Equal(t, 4*time.Second, opts.Slack.Timeout)
+	assert.Equal(t, 2, opts.Slack.MaxRetries)
+	assert.Equal(t, 300*time.Millisecond, opts.Slack.BackoffInitial)
+}
+
+func TestParseAlertingOptions_InvalidTimeout(t *testing.T) {
+	cfg := config.Default()
+	cfg.Alerting.Webhook.Timeout = "bad"
+
+	_, err := parseAlertingOptions(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parsing alerting.webhook.timeout")
+
+	cfg = config.Default()
+	cfg.Alerting.Slack.Timeout = "bad"
+	_, err = parseAlertingOptions(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parsing alerting.slack.timeout")
+}
+
 func testContext(t *testing.T) context.Context {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)

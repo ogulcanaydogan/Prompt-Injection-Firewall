@@ -34,6 +34,18 @@ func TestDefault(t *testing.T) {
 	assert.Equal(t, 5, cfg.Dashboard.RefreshSeconds)
 	assert.False(t, cfg.Dashboard.Auth.Enabled)
 	assert.False(t, cfg.Dashboard.RuleManagement.Enabled)
+	assert.False(t, cfg.Alerting.Enabled)
+	assert.Equal(t, 1024, cfg.Alerting.QueueSize)
+	assert.True(t, cfg.Alerting.Events.Block)
+	assert.True(t, cfg.Alerting.Events.RateLimit)
+	assert.True(t, cfg.Alerting.Events.ScanError)
+	assert.Equal(t, 60, cfg.Alerting.Throttle.WindowSeconds)
+	assert.False(t, cfg.Alerting.Webhook.Enabled)
+	assert.Equal(t, "3s", cfg.Alerting.Webhook.Timeout)
+	assert.Equal(t, 3, cfg.Alerting.Webhook.MaxRetries)
+	assert.Equal(t, 200, cfg.Alerting.Webhook.BackoffInitialMs)
+	assert.False(t, cfg.Alerting.Slack.Enabled)
+	assert.Equal(t, "3s", cfg.Alerting.Slack.Timeout)
 	assert.Equal(t, ":8443", cfg.Webhook.Listen)
 	assert.Equal(t, `(?i)pif-proxy`, cfg.Webhook.PIFHostPattern)
 	assert.Equal(t, "info", cfg.Logging.Level)
@@ -78,6 +90,16 @@ func TestLoad_EnvOverride(t *testing.T) {
 	t.Setenv("PIF_DASHBOARD_AUTH_USERNAME", "admin")
 	t.Setenv("PIF_DASHBOARD_AUTH_PASSWORD", "secret")
 	t.Setenv("PIF_DASHBOARD_RULE_MANAGEMENT_ENABLED", "true")
+	t.Setenv("PIF_ALERTING_ENABLED", "true")
+	t.Setenv("PIF_ALERTING_QUEUE_SIZE", "2048")
+	t.Setenv("PIF_ALERTING_EVENTS_BLOCK", "false")
+	t.Setenv("PIF_ALERTING_EVENTS_RATE_LIMIT", "true")
+	t.Setenv("PIF_ALERTING_EVENTS_SCAN_ERROR", "true")
+	t.Setenv("PIF_ALERTING_WEBHOOK_ENABLED", "true")
+	t.Setenv("PIF_ALERTING_WEBHOOK_URL", "https://example.com/hook")
+	t.Setenv("PIF_ALERTING_WEBHOOK_AUTH_BEARER_TOKEN", "topsecret")
+	t.Setenv("PIF_ALERTING_SLACK_ENABLED", "true")
+	t.Setenv("PIF_ALERTING_SLACK_INCOMING_WEBHOOK_URL", "https://hooks.slack.com/services/T/B/X")
 
 	cfg, err := Load("")
 	require.NoError(t, err)
@@ -90,6 +112,16 @@ func TestLoad_EnvOverride(t *testing.T) {
 	assert.Equal(t, "admin", cfg.Dashboard.Auth.Username)
 	assert.Equal(t, "secret", cfg.Dashboard.Auth.Password)
 	assert.True(t, cfg.Dashboard.RuleManagement.Enabled)
+	assert.True(t, cfg.Alerting.Enabled)
+	assert.Equal(t, 2048, cfg.Alerting.QueueSize)
+	assert.False(t, cfg.Alerting.Events.Block)
+	assert.True(t, cfg.Alerting.Events.RateLimit)
+	assert.True(t, cfg.Alerting.Events.ScanError)
+	assert.True(t, cfg.Alerting.Webhook.Enabled)
+	assert.Equal(t, "https://example.com/hook", cfg.Alerting.Webhook.URL)
+	assert.Equal(t, "topsecret", cfg.Alerting.Webhook.AuthBearerToken)
+	assert.True(t, cfg.Alerting.Slack.Enabled)
+	assert.Equal(t, "https://hooks.slack.com/services/T/B/X", cfg.Alerting.Slack.IncomingWebhookURL)
 }
 
 func TestLoad_MLEnvOverride(t *testing.T) {
@@ -131,6 +163,28 @@ dashboard:
     password: "pass"
   rule_management:
     enabled: true
+alerting:
+  enabled: true
+  queue_size: 128
+  events:
+    block: true
+    rate_limit: true
+    scan_error: false
+  throttle:
+    window_seconds: 30
+  webhook:
+    enabled: true
+    url: "https://alerts.example.com/pif"
+    timeout: "2s"
+    max_retries: 2
+    backoff_initial_ms: 100
+    auth_bearer_token: "abc123"
+  slack:
+    enabled: true
+    incoming_webhook_url: "https://hooks.slack.com/services/T/B/X"
+    timeout: "2s"
+    max_retries: 2
+    backoff_initial_ms: 100
 webhook:
   pif_host_pattern: "(?i)my-pif"
 `
@@ -158,6 +212,23 @@ webhook:
 	assert.Equal(t, "ops", cfg.Dashboard.Auth.Username)
 	assert.Equal(t, "pass", cfg.Dashboard.Auth.Password)
 	assert.True(t, cfg.Dashboard.RuleManagement.Enabled)
+	assert.True(t, cfg.Alerting.Enabled)
+	assert.Equal(t, 128, cfg.Alerting.QueueSize)
+	assert.True(t, cfg.Alerting.Events.Block)
+	assert.True(t, cfg.Alerting.Events.RateLimit)
+	assert.False(t, cfg.Alerting.Events.ScanError)
+	assert.Equal(t, 30, cfg.Alerting.Throttle.WindowSeconds)
+	assert.True(t, cfg.Alerting.Webhook.Enabled)
+	assert.Equal(t, "https://alerts.example.com/pif", cfg.Alerting.Webhook.URL)
+	assert.Equal(t, "2s", cfg.Alerting.Webhook.Timeout)
+	assert.Equal(t, 2, cfg.Alerting.Webhook.MaxRetries)
+	assert.Equal(t, 100, cfg.Alerting.Webhook.BackoffInitialMs)
+	assert.Equal(t, "abc123", cfg.Alerting.Webhook.AuthBearerToken)
+	assert.True(t, cfg.Alerting.Slack.Enabled)
+	assert.Equal(t, "https://hooks.slack.com/services/T/B/X", cfg.Alerting.Slack.IncomingWebhookURL)
+	assert.Equal(t, "2s", cfg.Alerting.Slack.Timeout)
+	assert.Equal(t, 2, cfg.Alerting.Slack.MaxRetries)
+	assert.Equal(t, 100, cfg.Alerting.Slack.BackoffInitialMs)
 	assert.False(t, cfg.Detector.AdaptiveThreshold.Enabled)
 	assert.Equal(t, 0.4, cfg.Detector.AdaptiveThreshold.MinThreshold)
 	assert.Equal(t, 0.1, cfg.Detector.AdaptiveThreshold.EWMAAlpha)

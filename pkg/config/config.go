@@ -13,6 +13,7 @@ type Config struct {
 	Rules     RulesConfig     `mapstructure:"rules"`
 	Proxy     ProxyConfig     `mapstructure:"proxy"`
 	Dashboard DashboardConfig `mapstructure:"dashboard"`
+	Alerting  AlertingConfig  `mapstructure:"alerting"`
 	Webhook   WebhookConfig   `mapstructure:"webhook"`
 	Allowlist AllowlistConfig `mapstructure:"allowlist"`
 	Logging   LoggingConfig   `mapstructure:"logging"`
@@ -80,6 +81,35 @@ type DashboardAuthConfig struct {
 
 type DashboardRuleManagementConfig struct {
 	Enabled bool `mapstructure:"enabled"`
+}
+
+type AlertingConfig struct {
+	Enabled   bool                   `mapstructure:"enabled"`
+	QueueSize int                    `mapstructure:"queue_size"`
+	Events    AlertingEventsConfig   `mapstructure:"events"`
+	Throttle  AlertingThrottleConfig `mapstructure:"throttle"`
+	Webhook   AlertingSinkConfig     `mapstructure:"webhook"`
+	Slack     AlertingSinkConfig     `mapstructure:"slack"`
+}
+
+type AlertingEventsConfig struct {
+	Block     bool `mapstructure:"block"`
+	RateLimit bool `mapstructure:"rate_limit"`
+	ScanError bool `mapstructure:"scan_error"`
+}
+
+type AlertingThrottleConfig struct {
+	WindowSeconds int `mapstructure:"window_seconds"`
+}
+
+type AlertingSinkConfig struct {
+	Enabled            bool   `mapstructure:"enabled"`
+	URL                string `mapstructure:"url"`
+	IncomingWebhookURL string `mapstructure:"incoming_webhook_url"`
+	Timeout            string `mapstructure:"timeout"`
+	MaxRetries         int    `mapstructure:"max_retries"`
+	BackoffInitialMs   int    `mapstructure:"backoff_initial_ms"`
+	AuthBearerToken    string `mapstructure:"auth_bearer_token"`
 }
 
 type WebhookConfig struct {
@@ -156,6 +186,33 @@ func Default() *Config {
 				Enabled: false,
 			},
 		},
+		Alerting: AlertingConfig{
+			Enabled:   false,
+			QueueSize: 1024,
+			Events: AlertingEventsConfig{
+				Block:     true,
+				RateLimit: true,
+				ScanError: true,
+			},
+			Throttle: AlertingThrottleConfig{
+				WindowSeconds: 60,
+			},
+			Webhook: AlertingSinkConfig{
+				Enabled:          false,
+				URL:              "",
+				Timeout:          "3s",
+				MaxRetries:       3,
+				BackoffInitialMs: 200,
+				AuthBearerToken:  "",
+			},
+			Slack: AlertingSinkConfig{
+				Enabled:            false,
+				IncomingWebhookURL: "",
+				Timeout:            "3s",
+				MaxRetries:         3,
+				BackoffInitialMs:   200,
+			},
+		},
 		Webhook: WebhookConfig{
 			Listen:         ":8443",
 			TLSCertFile:    "/etc/pif/webhook/tls.crt",
@@ -208,6 +265,23 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("dashboard.auth.username", defaults.Dashboard.Auth.Username)
 	v.SetDefault("dashboard.auth.password", defaults.Dashboard.Auth.Password)
 	v.SetDefault("dashboard.rule_management.enabled", defaults.Dashboard.RuleManagement.Enabled)
+	v.SetDefault("alerting.enabled", defaults.Alerting.Enabled)
+	v.SetDefault("alerting.queue_size", defaults.Alerting.QueueSize)
+	v.SetDefault("alerting.events.block", defaults.Alerting.Events.Block)
+	v.SetDefault("alerting.events.rate_limit", defaults.Alerting.Events.RateLimit)
+	v.SetDefault("alerting.events.scan_error", defaults.Alerting.Events.ScanError)
+	v.SetDefault("alerting.throttle.window_seconds", defaults.Alerting.Throttle.WindowSeconds)
+	v.SetDefault("alerting.webhook.enabled", defaults.Alerting.Webhook.Enabled)
+	v.SetDefault("alerting.webhook.url", defaults.Alerting.Webhook.URL)
+	v.SetDefault("alerting.webhook.timeout", defaults.Alerting.Webhook.Timeout)
+	v.SetDefault("alerting.webhook.max_retries", defaults.Alerting.Webhook.MaxRetries)
+	v.SetDefault("alerting.webhook.backoff_initial_ms", defaults.Alerting.Webhook.BackoffInitialMs)
+	v.SetDefault("alerting.webhook.auth_bearer_token", defaults.Alerting.Webhook.AuthBearerToken)
+	v.SetDefault("alerting.slack.enabled", defaults.Alerting.Slack.Enabled)
+	v.SetDefault("alerting.slack.incoming_webhook_url", defaults.Alerting.Slack.IncomingWebhookURL)
+	v.SetDefault("alerting.slack.timeout", defaults.Alerting.Slack.Timeout)
+	v.SetDefault("alerting.slack.max_retries", defaults.Alerting.Slack.MaxRetries)
+	v.SetDefault("alerting.slack.backoff_initial_ms", defaults.Alerting.Slack.BackoffInitialMs)
 	v.SetDefault("webhook.listen", defaults.Webhook.Listen)
 	v.SetDefault("webhook.tls_cert_file", defaults.Webhook.TLSCertFile)
 	v.SetDefault("webhook.tls_key_file", defaults.Webhook.TLSKeyFile)

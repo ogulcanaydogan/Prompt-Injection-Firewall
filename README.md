@@ -111,6 +111,7 @@ PIF addresses this critical gap by providing a **transparent, low-latency detect
 - **Health check endpoint** (`/healthz`)
 - **Prometheus metrics endpoint** (`/metrics`)
 - **Embedded monitoring dashboard + custom rule management** (`/dashboard`, optional)
+- **Real-time alerting (Webhook + Slack)** with async fail-open delivery
 - **golangci-lint** and race-condition-tested CI
 
 </td>
@@ -527,6 +528,34 @@ dashboard:
 #   and dashboard.auth.enabled=true.
 # - Built-in rule files remain read-only; dashboard mutates only managed custom rules.
 
+# Real-time alerting (optional)
+alerting:
+  enabled: false
+  queue_size: 1024
+  events:
+    block: true
+    rate_limit: true
+    scan_error: true
+  throttle:
+    window_seconds: 60                # Aggregate rate-limit and scan-error alerts per client/window
+  webhook:
+    enabled: false
+    url: ""                           # Generic webhook endpoint
+    timeout: "3s"
+    max_retries: 3
+    backoff_initial_ms: 200
+    auth_bearer_token: ""             # Optional outbound bearer token
+  slack:
+    enabled: false
+    incoming_webhook_url: ""          # Slack Incoming Webhook URL
+    timeout: "3s"
+    max_retries: 3
+    backoff_initial_ms: 200
+
+# Note:
+# - Alert delivery is async and fail-open: request path is never blocked by sink failures.
+# - Initial event scope: block, rate-limit, and scan-error.
+
 # Rule file paths
 rules:
   paths:
@@ -562,6 +591,12 @@ PIF_DASHBOARD_AUTH_ENABLED=true
 PIF_DASHBOARD_AUTH_USERNAME=ops
 PIF_DASHBOARD_AUTH_PASSWORD=change-me
 PIF_DASHBOARD_RULE_MANAGEMENT_ENABLED=true
+PIF_ALERTING_ENABLED=true
+PIF_ALERTING_WEBHOOK_ENABLED=true
+PIF_ALERTING_WEBHOOK_URL=https://alerts.example.com/pif
+PIF_ALERTING_WEBHOOK_AUTH_BEARER_TOKEN=replace-me
+PIF_ALERTING_SLACK_ENABLED=true
+PIF_ALERTING_SLACK_INCOMING_WEBHOOK_URL=https://hooks.slack.com/services/T000/B000/XXX
 PIF_LOGGING_LEVEL=debug
 ```
 
@@ -704,7 +739,8 @@ Automated quality gates on every push and pull request:
 
 - [x] Web-based read-only dashboard UI for monitoring (MVP)
 - [x] Dashboard rule management (write/edit workflows)
-- [ ] Real-time alerting (Slack, PagerDuty, webhooks)
+- [x] Real-time alerting: Webhook + Slack (MVP)
+- [ ] Real-time alerting: PagerDuty sink
 - [ ] Multi-tenant support with per-tenant policies
 - [ ] Attack replay and forensic analysis tools
 - [ ] Community rule marketplace

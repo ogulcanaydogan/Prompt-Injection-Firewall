@@ -22,6 +22,8 @@ type Metrics struct {
 	injectionDetectionsTotal *prometheus.CounterVec
 	detectionScore           *prometheus.HistogramVec
 	rateLimitEventsTotal     *prometheus.CounterVec
+	alertEventsTotal         *prometheus.CounterVec
+	alertSinkDeliveriesTotal *prometheus.CounterVec
 
 	mu sync.RWMutex
 
@@ -114,6 +116,20 @@ func NewMetrics() *Metrics {
 			},
 			[]string{"reason"},
 		),
+		alertEventsTotal: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "pif_alert_events_total",
+				Help: "Total number of alert events enqueued or dropped by type and status.",
+			},
+			[]string{"event_type", "status"},
+		),
+		alertSinkDeliveriesTotal: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "pif_alert_sink_deliveries_total",
+				Help: "Total number of alert sink delivery outcomes by sink and status.",
+			},
+			[]string{"sink", "status"},
+		),
 		startedAt:          now,
 		lastUpdate:         now,
 		requestsByMethod:   make(map[string]uint64),
@@ -131,6 +147,8 @@ func NewMetrics() *Metrics {
 		m.injectionDetectionsTotal,
 		m.detectionScore,
 		m.rateLimitEventsTotal,
+		m.alertEventsTotal,
+		m.alertSinkDeliveriesTotal,
 	)
 
 	return m
@@ -202,6 +220,26 @@ func (m *Metrics) IncRateLimitEvent(reason string) {
 	m.lastUpdate = time.Now().UTC()
 	m.totalRateLimitEvents++
 	m.rateLimitByReason[reason]++
+}
+
+func (m *Metrics) IncAlertEvent(eventType, status string) {
+	if m == nil {
+		return
+	}
+	m.alertEventsTotal.WithLabelValues(eventType, status).Inc()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.lastUpdate = time.Now().UTC()
+}
+
+func (m *Metrics) IncAlertSinkDelivery(sink, status string) {
+	if m == nil {
+		return
+	}
+	m.alertSinkDeliveriesTotal.WithLabelValues(sink, status).Inc()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.lastUpdate = time.Now().UTC()
 }
 
 // Snapshot returns a thread-safe metrics snapshot for dashboard JSON endpoints.
