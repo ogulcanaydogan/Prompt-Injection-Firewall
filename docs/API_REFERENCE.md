@@ -33,6 +33,64 @@ Core metric names:
 - `pif_injection_detections_total`
 - `pif_detection_score`
 - `pif_rate_limit_events_total`
+- `pif_alert_events_total`
+- `pif_alert_sink_deliveries_total`
+
+### Outbound Alerting (Optional)
+
+When `alerting.enabled=true`, PIF emits outbound alerts without exposing new inbound HTTP endpoints.
+
+Initial event types:
+
+- `injection_blocked` (immediate on block action)
+- `rate_limit_exceeded` (window-aggregated per client key)
+- `scan_error` (window-aggregated per client key)
+
+Delivery model:
+
+- Async queue + worker dispatcher
+- Retry with exponential backoff and jitter
+- Fail-open behavior (delivery failure never blocks proxy request handling)
+- Sink execution order is sequential (`webhook` then `slack` when both are enabled)
+
+Supported sinks:
+
+- Generic webhook (`alerting.webhook.*`)
+- Slack Incoming Webhook (`alerting.slack.*`)
+
+Generic webhook sends JSON payloads with the following contract:
+
+```json
+{
+  "event_id": "evt-1741363854757000000-1",
+  "timestamp": "2026-03-07T12:30:54Z",
+  "event_type": "injection_blocked",
+  "action": "block",
+  "client_key": "203.0.113.10",
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "target": "https://api.openai.com",
+  "score": 0.92,
+  "threshold": 0.50,
+  "findings_count": 2,
+  "reason": "blocked_by_policy",
+  "sample_findings": [
+    {
+      "rule_id": "PIF-INJ-001",
+      "category": "prompt_injection",
+      "severity": 4,
+      "match": "ignore all previous instructions"
+    }
+  ],
+  "aggregate_count": 1
+}
+```
+
+Notes:
+
+- `sample_findings` is capped at 3 entries.
+- `aggregate_count` is used by aggregated events (`rate_limit_exceeded`, `scan_error`).
+- When configured, webhook sink sends `Authorization: Bearer <token>`.
 
 ### Embedded Dashboard (Optional)
 

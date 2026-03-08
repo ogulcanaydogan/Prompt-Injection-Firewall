@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Phase 3 Step 3 -- Real-Time Alerting MVP (Webhook + Slack)**
+  - Async fail-open alert dispatcher with queue, retry/backoff, and sink delivery metrics
+  - Alert event emission for `injection_blocked`, `rate_limit_exceeded`, and `scan_error`
+  - Generic webhook sink with optional Bearer token and Slack Incoming Webhook sink
+  - Alerting config/env surface: `alerting.*` and `PIF_ALERTING_*`
+
 ## [1.2.0] - 2026-03-07
 
 ### Added
