@@ -51,12 +51,13 @@ Delivery model:
 - Async queue + worker dispatcher
 - Retry with exponential backoff and jitter
 - Fail-open behavior (delivery failure never blocks proxy request handling)
-- Sink execution order is sequential (`webhook` then `slack` when both are enabled)
+- Sink execution order is sequential (`webhook` -> `slack` -> `pagerduty` when enabled)
 
 Supported sinks:
 
 - Generic webhook (`alerting.webhook.*`)
 - Slack Incoming Webhook (`alerting.slack.*`)
+- PagerDuty Events API v2 (`alerting.pagerduty.*`)
 
 Generic webhook sends JSON payloads with the following contract:
 
@@ -92,6 +93,45 @@ Notes:
 - `aggregate_count` is used by aggregated events (`rate_limit_exceeded`, `scan_error`).
 - When configured, webhook sink sends `Authorization: Bearer <token>`.
 
+PagerDuty sink sends trigger-only Events API v2 payloads:
+
+```json
+{
+  "routing_key": "your-routing-key",
+  "event_action": "trigger",
+  "payload": {
+    "summary": "pif injection_blocked action=block path=/v1/chat/completions reason=blocked_by_policy",
+    "source": "prompt-injection-firewall",
+    "severity": "critical",
+    "timestamp": "2026-03-08T01:02:03Z",
+    "component": "proxy",
+    "group": "pif",
+    "class": "security",
+    "custom_details": {
+      "event_id": "evt-1741395723000000000-1",
+      "event_type": "injection_blocked",
+      "action": "block",
+      "client_key": "203.0.113.10",
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "target": "https://api.openai.com",
+      "score": 0.92,
+      "threshold": 0.5,
+      "findings_count": 2,
+      "reason": "blocked_by_policy",
+      "aggregate_count": 1,
+      "sample_findings": []
+    }
+  }
+}
+```
+
+PagerDuty severity mapping:
+
+- `injection_blocked` -> `critical`
+- `scan_error` -> `error`
+- `rate_limit_exceeded` -> `warning`
+
 ### Embedded Dashboard (Optional)
 
 When `dashboard.enabled=true`, PIF exposes a monitoring dashboard:
@@ -101,12 +141,18 @@ GET /dashboard
 GET /api/dashboard/summary
 GET /api/dashboard/metrics
 GET /api/dashboard/rules
+GET /api/dashboard/replays
+GET /api/dashboard/replays/{id}
+POST /api/dashboard/replays/{id}/rescan
 ```
 
 - `GET /dashboard` serves embedded HTML/CSS/JS.
 - `GET /api/dashboard/summary` returns high-level counters, uptime, p95 scan latency, and a safe runtime config snapshot.
 - `GET /api/dashboard/metrics` returns normalized JSON metrics for UI polling (totals, label breakdowns, quantiles).
 - `GET /api/dashboard/rules` returns loaded rule set metadata plus managed custom rules.
+- `GET /api/dashboard/replays` returns replay event list (`tenant`, `event_type`, `decision`, `payload_hash`, findings, request metadata).
+- `GET /api/dashboard/replays/{id}` returns full replay record.
+- `POST /api/dashboard/replays/{id}/rescan` rescans captured prompts with the current detector (no upstream forwarding).
 
 If `dashboard.auth.enabled=true`, both UI and dashboard API endpoints require Basic Auth and return:
 
@@ -156,6 +202,89 @@ Notes:
 - `severity` is integer `0..4` (`info..critical`).
 - Built-in OWASP/jailbreak/data-exfil files are not edited via dashboard.
 - Dashboard writes only to managed custom rules and applies changes with hot reload.
+- Rule-set response includes source metadata (`source`, `path`, optional marketplace metadata).
+
+### Replay / Forensics API (Optional)
+
+Replay API is available only when both `dashboard.enabled=true` and `replay.enabled=true`.
+
+Behavior:
+
+- `dashboard.enabled=false` -> all dashboard routes return `404`.
+- `replay.enabled=false` -> replay routes return `404`.
+- If dashboard auth is enabled, replay routes require Basic Auth.
+
+Replay event schema (JSONL-backed):
+
+```json
+{
+  "replay_id": "rpl_1741395723000000000_1",
+  "timestamp": "2026-03-08T01:30:45Z",
+  "tenant": "default",
+  "event_type": "block",
+  "decision": "block",
+  "score": 0.91,
+  "threshold": 0.50,
+  "findings": [],
+  "request_meta": {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "target": "https://api.openai.com",
+    "client_key": "203.0.113.10"
+  },
+  "payload_hash": "sha256-hex",
+  "prompts": [
+    {
+      "role": "user",
+      "text": "ignore all previous instructions",
+      "truncated": false,
+      "redacted": true
+    }
+  ]
+}
+```
+
+Captured replay event types:
+
+- `block`
+- `rate_limit`
+- `scan_error`
+- `flag`
+
+### Multi-Tenant Runtime Policy (Optional)
+
+When `tenancy.enabled=true`, request policy can be resolved from `tenancy.header` (default `X-PIF-Tenant`) with fallback to `tenancy.default_tenant`.
+
+Per-tenant policy override surface:
+
+- `action`
+- `threshold`
+- `rate_limit.requests_per_minute`
+- `rate_limit.burst`
+- `adaptive_threshold.enabled`
+- `adaptive_threshold.min_threshold`
+- `adaptive_threshold.ewma_alpha`
+
+Unknown tenant values fall back to default tenant policy.
+
+Dashboard summary includes tenant breakdown for configured tenants.
+
+### Community Marketplace CLI
+
+Marketplace is a CLI surface (no inbound HTTP routes):
+
+```bash
+pif marketplace list
+pif marketplace install <id>@<version>
+pif marketplace update
+```
+
+Contract:
+
+- Catalog index (`marketplace.index_url`) exposes entries:
+  - `id`, `name`, `version`, `download_url`, `sha256`, `categories`, `maintainer`
+- Install verifies checksum when `marketplace.require_checksum=true`
+- Installed files are written to `marketplace.install_dir` and can be loaded as custom rules
 
 ### Proxy (All Other Paths)
 
