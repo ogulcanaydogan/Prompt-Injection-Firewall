@@ -3,6 +3,7 @@ package proxy
 import (
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,6 +40,9 @@ type Metrics struct {
 	requestsByOutcome   map[string]uint64
 	injectionsByAction  map[string]uint64
 	rateLimitByReason   map[string]uint64
+	tenantRequests      map[string]uint64
+	tenantInjections    map[string]uint64
+	tenantRateLimit     map[string]uint64
 	scanDurationSamples []float64
 	detectionScoreSlice []float64
 }
@@ -62,14 +66,22 @@ type MetricsSnapshot struct {
 	TotalInjectionDetections uint64 `json:"total_injection_detections"`
 	TotalRateLimitEvents     uint64 `json:"total_rate_limit_events"`
 
-	RequestsByMethod   map[string]uint64 `json:"requests_by_method"`
-	RequestsByAction   map[string]uint64 `json:"requests_by_action"`
-	RequestsByOutcome  map[string]uint64 `json:"requests_by_outcome"`
-	InjectionsByAction map[string]uint64 `json:"injections_by_action"`
-	RateLimitByReason  map[string]uint64 `json:"rate_limit_by_reason"`
+	RequestsByMethod   map[string]uint64                `json:"requests_by_method"`
+	RequestsByAction   map[string]uint64                `json:"requests_by_action"`
+	RequestsByOutcome  map[string]uint64                `json:"requests_by_outcome"`
+	InjectionsByAction map[string]uint64                `json:"injections_by_action"`
+	RateLimitByReason  map[string]uint64                `json:"rate_limit_by_reason"`
+	TenantBreakdown    map[string]TenantMetricsSnapshot `json:"tenant_breakdown"`
 
 	ScanDurationSeconds MetricQuantiles `json:"scan_duration_seconds"`
 	DetectionScore      MetricQuantiles `json:"detection_score"`
+}
+
+// TenantMetricsSnapshot summarizes counters for a specific tenant.
+type TenantMetricsSnapshot struct {
+	TotalRequests            uint64 `json:"total_requests"`
+	TotalInjectionDetections uint64 `json:"total_injection_detections"`
+	TotalRateLimitEvents     uint64 `json:"total_rate_limit_events"`
 }
 
 // NewMetrics creates and registers PIF metrics in an isolated registry.
@@ -137,6 +149,9 @@ func NewMetrics() *Metrics {
 		requestsByOutcome:  make(map[string]uint64),
 		injectionsByAction: make(map[string]uint64),
 		rateLimitByReason:  make(map[string]uint64),
+		tenantRequests:     make(map[string]uint64),
+		tenantInjections:   make(map[string]uint64),
+		tenantRateLimit:    make(map[string]uint64),
 	}
 
 	reg.MustRegister(
@@ -163,6 +178,10 @@ func (m *Metrics) Handler() http.Handler {
 }
 
 func (m *Metrics) ObserveHTTPRequest(method, action, outcome string) {
+	m.ObserveHTTPRequestForTenant(method, action, outcome, "")
+}
+
+func (m *Metrics) ObserveHTTPRequestForTenant(method, action, outcome, tenant string) {
 	if m == nil {
 		return
 	}
@@ -174,6 +193,9 @@ func (m *Metrics) ObserveHTTPRequest(method, action, outcome string) {
 	m.requestsByMethod[method]++
 	m.requestsByAction[action]++
 	m.requestsByOutcome[outcome]++
+	if t := strings.TrimSpace(tenant); t != "" {
+		m.tenantRequests[t]++
+	}
 }
 
 func (m *Metrics) ObserveScanDuration(seconds float64, outcome string) {
@@ -199,6 +221,10 @@ func (m *Metrics) ObserveDetectionScore(score float64, outcome string) {
 }
 
 func (m *Metrics) IncInjectionDetection(action string) {
+	m.IncInjectionDetectionForTenant(action, "")
+}
+
+func (m *Metrics) IncInjectionDetectionForTenant(action, tenant string) {
 	if m == nil {
 		return
 	}
@@ -208,9 +234,16 @@ func (m *Metrics) IncInjectionDetection(action string) {
 	m.lastUpdate = time.Now().UTC()
 	m.totalInjectionDetections++
 	m.injectionsByAction[action]++
+	if t := strings.TrimSpace(tenant); t != "" {
+		m.tenantInjections[t]++
+	}
 }
 
 func (m *Metrics) IncRateLimitEvent(reason string) {
+	m.IncRateLimitEventForTenant(reason, "")
+}
+
+func (m *Metrics) IncRateLimitEventForTenant(reason, tenant string) {
 	if m == nil {
 		return
 	}
@@ -220,6 +253,9 @@ func (m *Metrics) IncRateLimitEvent(reason string) {
 	m.lastUpdate = time.Now().UTC()
 	m.totalRateLimitEvents++
 	m.rateLimitByReason[reason]++
+	if t := strings.TrimSpace(tenant); t != "" {
+		m.tenantRateLimit[t]++
+	}
 }
 
 func (m *Metrics) IncAlertEvent(eventType, status string) {
@@ -264,6 +300,9 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 	requestsByOutcome := copyCounterMap(m.requestsByOutcome)
 	injectionsByAction := copyCounterMap(m.injectionsByAction)
 	rateLimitByReason := copyCounterMap(m.rateLimitByReason)
+	tenantRequests := copyCounterMap(m.tenantRequests)
+	tenantInjections := copyCounterMap(m.tenantInjections)
+	tenantRateLimit := copyCounterMap(m.tenantRateLimit)
 	scanSamples := append([]float64(nil), m.scanDurationSamples...)
 	scoreSamples := append([]float64(nil), m.detectionScoreSlice...)
 	m.mu.RUnlock()
@@ -282,9 +321,30 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 		RequestsByOutcome:        requestsByOutcome,
 		InjectionsByAction:       injectionsByAction,
 		RateLimitByReason:        rateLimitByReason,
+		TenantBreakdown:          buildTenantBreakdown(tenantRequests, tenantInjections, tenantRateLimit),
 		ScanDurationSeconds:      computeQuantiles(scanSamples),
 		DetectionScore:           computeQuantiles(scoreSamples),
 	}
+}
+
+func buildTenantBreakdown(requests, injections, rateLimit map[string]uint64) map[string]TenantMetricsSnapshot {
+	out := make(map[string]TenantMetricsSnapshot)
+	for tenant, count := range requests {
+		s := out[tenant]
+		s.TotalRequests = count
+		out[tenant] = s
+	}
+	for tenant, count := range injections {
+		s := out[tenant]
+		s.TotalInjectionDetections = count
+		out[tenant] = s
+	}
+	for tenant, count := range rateLimit {
+		s := out[tenant]
+		s.TotalRateLimitEvents = count
+		out[tenant] = s
+	}
+	return out
 }
 
 func appendSample(samples []float64, value float64, limit int) []float64 {

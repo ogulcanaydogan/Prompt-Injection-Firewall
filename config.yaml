@@ -67,6 +67,44 @@ alerting:
     timeout: "3s"
     max_retries: 3
     backoff_initial_ms: 200
+  pagerduty:
+    enabled: false
+    url: "https://events.pagerduty.com/v2/enqueue"
+    routing_key: ""
+    timeout: "3s"
+    max_retries: 3
+    backoff_initial_ms: 200
+    source: "prompt-injection-firewall"
+    component: "proxy"
+    group: "pif"
+    class: "security"
+
+tenancy:
+  enabled: false
+  header: "X-PIF-Tenant"
+  default_tenant: "default"
+  tenants: {}
+
+replay:
+  enabled: false
+  storage_path: "data/replay/events.jsonl"
+  max_file_size_mb: 50
+  max_files: 5
+  capture_events:
+    block: true
+    rate_limit: true
+    scan_error: true
+    flag: true
+  redact_prompt_content: true
+  max_prompt_chars: 512
+
+marketplace:
+  enabled: false
+  index_url: ""
+  cache_dir: ".cache/pif-marketplace"
+  install_dir: "rules/community"
+  refresh_interval_minutes: 60
+  require_checksum: true
 
 webhook:
   listen: ":8443"

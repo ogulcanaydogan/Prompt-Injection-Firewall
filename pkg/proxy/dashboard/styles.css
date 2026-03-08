@@ -218,6 +218,18 @@ table {
   font-size: 0.92rem;
 }
 
+.detail-box {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  min-height: 120px;
+  max-height: 260px;
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.65);
+  font-size: 0.82rem;
+}
+
 th,
 td {
   border-bottom: 1px solid var(--line);
@@ -233,6 +245,10 @@ th {
 
 .error {
   color: var(--warn);
+}
+
+.selected-row {
+  background: rgba(0, 124, 111, 0.08);
 }
 
 @media (max-width: 960px) {

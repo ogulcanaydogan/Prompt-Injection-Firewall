@@ -9,14 +9,17 @@ import (
 
 // Config holds all PIF configuration.
 type Config struct {
-	Detector  DetectorConfig  `mapstructure:"detector"`
-	Rules     RulesConfig     `mapstructure:"rules"`
-	Proxy     ProxyConfig     `mapstructure:"proxy"`
-	Dashboard DashboardConfig `mapstructure:"dashboard"`
-	Alerting  AlertingConfig  `mapstructure:"alerting"`
-	Webhook   WebhookConfig   `mapstructure:"webhook"`
-	Allowlist AllowlistConfig `mapstructure:"allowlist"`
-	Logging   LoggingConfig   `mapstructure:"logging"`
+	Detector    DetectorConfig    `mapstructure:"detector"`
+	Rules       RulesConfig       `mapstructure:"rules"`
+	Proxy       ProxyConfig       `mapstructure:"proxy"`
+	Dashboard   DashboardConfig   `mapstructure:"dashboard"`
+	Alerting    AlertingConfig    `mapstructure:"alerting"`
+	Tenancy     TenancyConfig     `mapstructure:"tenancy"`
+	Replay      ReplayConfig      `mapstructure:"replay"`
+	Marketplace MarketplaceConfig `mapstructure:"marketplace"`
+	Webhook     WebhookConfig     `mapstructure:"webhook"`
+	Allowlist   AllowlistConfig   `mapstructure:"allowlist"`
+	Logging     LoggingConfig     `mapstructure:"logging"`
 }
 
 type DetectorConfig struct {
@@ -84,12 +87,13 @@ type DashboardRuleManagementConfig struct {
 }
 
 type AlertingConfig struct {
-	Enabled   bool                   `mapstructure:"enabled"`
-	QueueSize int                    `mapstructure:"queue_size"`
-	Events    AlertingEventsConfig   `mapstructure:"events"`
-	Throttle  AlertingThrottleConfig `mapstructure:"throttle"`
-	Webhook   AlertingSinkConfig     `mapstructure:"webhook"`
-	Slack     AlertingSinkConfig     `mapstructure:"slack"`
+	Enabled   bool                    `mapstructure:"enabled"`
+	QueueSize int                     `mapstructure:"queue_size"`
+	Events    AlertingEventsConfig    `mapstructure:"events"`
+	Throttle  AlertingThrottleConfig  `mapstructure:"throttle"`
+	Webhook   AlertingSinkConfig      `mapstructure:"webhook"`
+	Slack     AlertingSinkConfig      `mapstructure:"slack"`
+	PagerDuty AlertingPagerDutyConfig `mapstructure:"pagerduty"`
 }
 
 type AlertingEventsConfig struct {
@@ -110,6 +114,74 @@ type AlertingSinkConfig struct {
 	MaxRetries         int    `mapstructure:"max_retries"`
 	BackoffInitialMs   int    `mapstructure:"backoff_initial_ms"`
 	AuthBearerToken    string `mapstructure:"auth_bearer_token"`
+}
+
+type AlertingPagerDutyConfig struct {
+	Enabled          bool   `mapstructure:"enabled"`
+	URL              string `mapstructure:"url"`
+	RoutingKey       string `mapstructure:"routing_key"`
+	Timeout          string `mapstructure:"timeout"`
+	MaxRetries       int    `mapstructure:"max_retries"`
+	BackoffInitialMs int    `mapstructure:"backoff_initial_ms"`
+	Source           string `mapstructure:"source"`
+	Component        string `mapstructure:"component"`
+	Group            string `mapstructure:"group"`
+	Class            string `mapstructure:"class"`
+}
+
+type TenancyConfig struct {
+	Enabled       bool                    `mapstructure:"enabled"`
+	Header        string                  `mapstructure:"header"`
+	DefaultTenant string                  `mapstructure:"default_tenant"`
+	Tenants       map[string]TenantConfig `mapstructure:"tenants"`
+}
+
+type TenantConfig struct {
+	Policy TenantPolicyConfig `mapstructure:"policy"`
+}
+
+type TenantPolicyConfig struct {
+	Action            string                                `mapstructure:"action"`
+	Threshold         float64                               `mapstructure:"threshold"`
+	RateLimit         TenantRateLimitConfig                 `mapstructure:"rate_limit"`
+	AdaptiveThreshold TenantAdaptiveThresholdOverrideConfig `mapstructure:"adaptive_threshold"`
+}
+
+type TenantRateLimitConfig struct {
+	RequestsPerMinute int `mapstructure:"requests_per_minute"`
+	Burst             int `mapstructure:"burst"`
+}
+
+type TenantAdaptiveThresholdOverrideConfig struct {
+	Enabled      *bool   `mapstructure:"enabled"`
+	MinThreshold float64 `mapstructure:"min_threshold"`
+	EWMAAlpha    float64 `mapstructure:"ewma_alpha"`
+}
+
+type ReplayConfig struct {
+	Enabled             bool                      `mapstructure:"enabled"`
+	StoragePath         string                    `mapstructure:"storage_path"`
+	MaxFileSizeMB       int                       `mapstructure:"max_file_size_mb"`
+	MaxFiles            int                       `mapstructure:"max_files"`
+	CaptureEvents       ReplayCaptureEventsConfig `mapstructure:"capture_events"`
+	RedactPromptContent bool                      `mapstructure:"redact_prompt_content"`
+	MaxPromptChars      int                       `mapstructure:"max_prompt_chars"`
+}
+
+type ReplayCaptureEventsConfig struct {
+	Block     bool `mapstructure:"block"`
+	RateLimit bool `mapstructure:"rate_limit"`
+	ScanError bool `mapstructure:"scan_error"`
+	Flag      bool `mapstructure:"flag"`
+}
+
+type MarketplaceConfig struct {
+	Enabled                bool   `mapstructure:"enabled"`
+	IndexURL               string `mapstructure:"index_url"`
+	CacheDir               string `mapstructure:"cache_dir"`
+	InstallDir             string `mapstructure:"install_dir"`
+	RefreshIntervalMinutes int    `mapstructure:"refresh_interval_minutes"`
+	RequireChecksum        bool   `mapstructure:"require_checksum"`
 }
 
 type WebhookConfig struct {
@@ -212,6 +284,46 @@ func Default() *Config {
 				MaxRetries:         3,
 				BackoffInitialMs:   200,
 			},
+			PagerDuty: AlertingPagerDutyConfig{
+				Enabled:          false,
+				URL:              "https://events.pagerduty.com/v2/enqueue",
+				RoutingKey:       "",
+				Timeout:          "3s",
+				MaxRetries:       3,
+				BackoffInitialMs: 200,
+				Source:           "prompt-injection-firewall",
+				Component:        "proxy",
+				Group:            "pif",
+				Class:            "security",
+			},
+		},
+		Tenancy: TenancyConfig{
+			Enabled:       false,
+			Header:        "X-PIF-Tenant",
+			DefaultTenant: "default",
+			Tenants:       map[string]TenantConfig{},
+		},
+		Replay: ReplayConfig{
+			Enabled:       false,
+			StoragePath:   "data/replay/events.jsonl",
+			MaxFileSizeMB: 50,
+			MaxFiles:      5,
+			CaptureEvents: ReplayCaptureEventsConfig{
+				Block:     true,
+				RateLimit: true,
+				ScanError: true,
+				Flag:      true,
+			},
+			RedactPromptContent: true,
+			MaxPromptChars:      512,
+		},
+		Marketplace: MarketplaceConfig{
+			Enabled:                false,
+			IndexURL:               "",
+			CacheDir:               ".cache/pif-marketplace",
+			InstallDir:             "rules/community",
+			RefreshIntervalMinutes: 60,
+			RequireChecksum:        true,
 		},
 		Webhook: WebhookConfig{
 			Listen:         ":8443",
@@ -282,6 +394,36 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("alerting.slack.timeout", defaults.Alerting.Slack.Timeout)
 	v.SetDefault("alerting.slack.max_retries", defaults.Alerting.Slack.MaxRetries)
 	v.SetDefault("alerting.slack.backoff_initial_ms", defaults.Alerting.Slack.BackoffInitialMs)
+	v.SetDefault("alerting.pagerduty.enabled", defaults.Alerting.PagerDuty.Enabled)
+	v.SetDefault("alerting.pagerduty.url", defaults.Alerting.PagerDuty.URL)
+	v.SetDefault("alerting.pagerduty.routing_key", defaults.Alerting.PagerDuty.RoutingKey)
+	v.SetDefault("alerting.pagerduty.timeout", defaults.Alerting.PagerDuty.Timeout)
+	v.SetDefault("alerting.pagerduty.max_retries", defaults.Alerting.PagerDuty.MaxRetries)
+	v.SetDefault("alerting.pagerduty.backoff_initial_ms", defaults.Alerting.PagerDuty.BackoffInitialMs)
+	v.SetDefault("alerting.pagerduty.source", defaults.Alerting.PagerDuty.Source)
+	v.SetDefault("alerting.pagerduty.component", defaults.Alerting.PagerDuty.Component)
+	v.SetDefault("alerting.pagerduty.group", defaults.Alerting.PagerDuty.Group)
+	v.SetDefault("alerting.pagerduty.class", defaults.Alerting.PagerDuty.Class)
+	v.SetDefault("tenancy.enabled", defaults.Tenancy.Enabled)
+	v.SetDefault("tenancy.header", defaults.Tenancy.Header)
+	v.SetDefault("tenancy.default_tenant", defaults.Tenancy.DefaultTenant)
+	v.SetDefault("tenancy.tenants", defaults.Tenancy.Tenants)
+	v.SetDefault("replay.enabled", defaults.Replay.Enabled)
+	v.SetDefault("replay.storage_path", defaults.Replay.StoragePath)
+	v.SetDefault("replay.max_file_size_mb", defaults.Replay.MaxFileSizeMB)
+	v.SetDefault("replay.max_files", defaults.Replay.MaxFiles)
+	v.SetDefault("replay.capture_events.block", defaults.Replay.CaptureEvents.Block)
+	v.SetDefault("replay.capture_events.rate_limit", defaults.Replay.CaptureEvents.RateLimit)
+	v.SetDefault("replay.capture_events.scan_error", defaults.Replay.CaptureEvents.ScanError)
+	v.SetDefault("replay.capture_events.flag", defaults.Replay.CaptureEvents.Flag)
+	v.SetDefault("replay.redact_prompt_content", defaults.Replay.RedactPromptContent)
+	v.SetDefault("replay.max_prompt_chars", defaults.Replay.MaxPromptChars)
+	v.SetDefault("marketplace.enabled", defaults.Marketplace.Enabled)
+	v.SetDefault("marketplace.index_url", defaults.Marketplace.IndexURL)
+	v.SetDefault("marketplace.cache_dir", defaults.Marketplace.CacheDir)
+	v.SetDefault("marketplace.install_dir", defaults.Marketplace.InstallDir)
+	v.SetDefault("marketplace.refresh_interval_minutes", defaults.Marketplace.RefreshIntervalMinutes)
+	v.SetDefault("marketplace.require_checksum", defaults.Marketplace.RequireChecksum)
 	v.SetDefault("webhook.listen", defaults.Webhook.Listen)
 	v.SetDefault("webhook.tls_cert_file", defaults.Webhook.TLSCertFile)
 	v.SetDefault("webhook.tls_key_file", defaults.Webhook.TLSKeyFile)

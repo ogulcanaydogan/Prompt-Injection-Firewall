@@ -20,6 +20,7 @@ const (
 	defaultAlertTimeout        = 3 * time.Second
 	defaultAlertMaxRetries     = 3
 	defaultAlertBackoffInitial = 200 * time.Millisecond
+	defaultPagerDutyEventsURL  = "https://events.pagerduty.com/v2/enqueue"
 	maxAlertBackoff            = 5 * time.Second
 )
 
@@ -101,7 +102,7 @@ func BuildAlertPublisher(opts AlertingOptions, logger *slog.Logger, metrics *Met
 		logger:  logger,
 		metrics: metrics,
 		queue:   make(chan AlertEvent, sanitizeQueueSize(opts.QueueSize)),
-		sinks:   buildAlertSinks(opts),
+		sinks:   buildAlertSinks(opts, logger),
 	}
 
 	if len(d.sinks) == 0 {
@@ -246,8 +247,9 @@ func (s *httpAlertSink) send(event AlertEvent) error {
 	return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 }
 
-func buildAlertSinks(opts AlertingOptions) []alertSink {
-	sinks := make([]alertSink, 0, 2)
+func buildAlertSinks(opts AlertingOptions, logger *slog.Logger) []alertSink {
+	sinks := make([]alertSink, 0, 3)
+	logger = ensureLogger(logger)
 
 	if opts.Webhook.Enabled && strings.TrimSpace(opts.Webhook.URL) != "" {
 		sinks = append(sinks, &httpAlertSink{
@@ -272,6 +274,30 @@ func buildAlertSinks(opts AlertingOptions) []alertSink {
 			backoffInitialDelay: sanitizeBackoff(opts.Slack.BackoffInitial),
 			mapPayload:          mapSlackPayload,
 		})
+	}
+
+	if opts.PagerDuty.Enabled {
+		routingKey := strings.TrimSpace(opts.PagerDuty.RoutingKey)
+		if routingKey == "" {
+			logger.Warn("pagerduty alert sink enabled but routing_key is empty; sink disabled")
+		} else {
+			url := strings.TrimSpace(opts.PagerDuty.URL)
+			if url == "" {
+				url = defaultPagerDutyEventsURL
+			}
+			pagerDutyOptions := opts.PagerDuty
+
+			sinks = append(sinks, &httpAlertSink{
+				sinkName:            "pagerduty",
+				url:                 url,
+				client:              &http.Client{Timeout: sanitizeTimeout(pagerDutyOptions.Timeout)},
+				retries:             sanitizeRetries(pagerDutyOptions.MaxRetries),
+				backoffInitialDelay: sanitizeBackoff(pagerDutyOptions.BackoffInitial),
+				mapPayload: func(event AlertEvent) ([]byte, error) {
+					return mapPagerDutyPayload(event, routingKey, pagerDutyOptions)
+				},
+			})
+		}
 	}
 
 	return sinks
@@ -303,6 +329,92 @@ func alertColor(eventType AlertEventType) string {
 	default:
 		return "#2F855A"
 	}
+}
+
+func mapPagerDutyPayload(event AlertEvent, routingKey string, opts AlertingPagerDutyOptions) ([]byte, error) {
+	timestamp := event.Timestamp
+	if timestamp.IsZero() {
+		timestamp = time.Now().UTC()
+	}
+
+	source := strings.TrimSpace(opts.Source)
+	if source == "" {
+		source = "prompt-injection-firewall"
+	}
+	component := strings.TrimSpace(opts.Component)
+	if component == "" {
+		component = "proxy"
+	}
+	group := strings.TrimSpace(opts.Group)
+	if group == "" {
+		group = "pif"
+	}
+	class := strings.TrimSpace(opts.Class)
+	if class == "" {
+		class = "security"
+	}
+
+	customDetails := map[string]interface{}{
+		"event_id":        event.EventID,
+		"event_type":      string(event.EventType),
+		"action":          event.Action,
+		"client_key":      event.ClientKey,
+		"method":          event.Method,
+		"path":            event.Path,
+		"target":          event.Target,
+		"score":           event.Score,
+		"threshold":       event.Threshold,
+		"findings_count":  event.FindingsCount,
+		"reason":          event.Reason,
+		"aggregate_count": event.AggregateCount,
+		"sample_findings": event.SampleFindings,
+	}
+
+	payload := map[string]interface{}{
+		"routing_key":  routingKey,
+		"event_action": "trigger",
+		"payload": map[string]interface{}{
+			"summary":        pagerDutySummary(event),
+			"source":         source,
+			"severity":       pagerDutySeverity(event.EventType),
+			"timestamp":      timestamp.UTC().Format(time.RFC3339),
+			"component":      component,
+			"group":          group,
+			"class":          class,
+			"custom_details": customDetails,
+		},
+	}
+
+	return json.Marshal(payload)
+}
+
+func pagerDutySeverity(eventType AlertEventType) string {
+	switch eventType {
+	case AlertEventInjectionBlocked:
+		return "critical"
+	case AlertEventScanError:
+		return "error"
+	case AlertEventRateLimit:
+		return "warning"
+	default:
+		return "info"
+	}
+}
+
+func pagerDutySummary(event AlertEvent) string {
+	action := event.Action
+	if action == "" {
+		action = "unknown"
+	}
+	path := event.Path
+	if path == "" {
+		path = "/"
+	}
+	reason := event.Reason
+	if strings.TrimSpace(reason) == "" {
+		reason = "n/a"
+	}
+	return fmt.Sprintf("pif %s action=%s path=%s reason=%s", event.EventType, action, path, reason)
 }
 
 func sanitizeQueueSize(size int) int {
