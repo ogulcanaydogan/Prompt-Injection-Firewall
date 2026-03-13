@@ -3,7 +3,7 @@
 **Grant Programme:** NGI Zero Core / NGI Zero Review
 **Funding Body:** NLnet Foundation, funded by the European Commission (Next Generation Internet initiative)
 **URL:** https://nlnet.nl/propose/
-**Funding Range:** EUR 5,000 -- 50,000
+**Funding Range:** EUR 5,000 to 50,000
 **Application Deadline:** 1 April 2026
 **Applicant:** Ogulcan Aydogan
 **Project:** Prompt Injection Firewall (PIF)
@@ -16,11 +16,11 @@
 
 *(Target: 200 words. Use this text directly in the NLnet proposal form.)*
 
-Prompt Injection Firewall (PIF) is an open-source reverse-proxy middleware that detects and prevents prompt injection attacks against Large Language Model (LLM) applications. Prompt injection -- ranked #1 on the OWASP Top 10 for LLM Applications -- allows adversaries to override developer instructions, manipulate model outputs, and exfiltrate data through crafted inputs. Despite widespread recognition of this threat, no open-source, protocol-level defence standard exists.
+Prompt Injection Firewall (PIF) is an open-source reverse-proxy middleware that detects and prevents prompt injection attacks against Large Language Model (LLM) applications. Prompt injection, ranked #1 on the OWASP Top 10 for LLM Applications, allows adversaries to override developer instructions, manipulate model outputs, and exfiltrate data through crafted inputs. Despite widespread recognition of this threat, no open-source, protocol-level defence standard exists.
 
 PIF operates transparently between clients and LLM APIs (OpenAI, Anthropic), applying a dual-engine detection system: 129 curated regex patterns for known attack signatures and a fine-tuned DistilBERT ONNX classifier for semantic analysis. An ensemble scorer combines both engines to drive configurable response actions (block, flag, or log). The system adds less than 100 milliseconds of latency and deploys as a single Go binary with no external dependencies beyond the ONNX model file.
 
-This proposal requests EUR 38,000 to fund adversarial robustness testing, detection engine expansion (indirect injection, multi-modal payloads), security audit, and documentation. PIF provides critical open infrastructure for the safe deployment of LLM applications in Europe and globally, directly supporting the NGI Zero mission of a trustworthy, open internet.
+This proposal requests EUR 38,000 to fund adversarial evasion testing, detection engine expansion (indirect injection, multi-modal payloads), security audit, and documentation. PIF provides critical open infrastructure for the safe deployment of LLM applications in Europe and globally, directly supporting the NGI Zero mission of a trustworthy, open internet.
 
 ---
 
@@ -37,9 +37,9 @@ Prompt injection attacks exploit the LLM's inability to distinguish between trus
 - Produce harmful, misleading, or manipulative content
 - Execute unintended actions in agent-based systems
 
-The OWASP Foundation ranks prompt injection as the number-one risk for LLM applications. The EU AI Act identifies input manipulation as a concern for high-risk AI systems. Despite this, the open-source ecosystem lacks a standard, deployable defence layer.
+The OWASP Foundation ranks prompt injection as the number-one risk for LLM applications. The EU AI Act identifies input manipulation as a concern for high-risk AI systems. Despite this, the open-source community lacks a standard, deployable defence layer.
 
-Commercial solutions exist (Lakera Guard, Protect AI) but are proprietary, opaque, and create vendor dependency. Organisations cannot audit the detection logic they rely on for safety-critical filtering.
+Commercial solutions exist (Lakera Guard, Protect AI) but are proprietary, opaque, and create vendor dependency. Organisations can't audit the detection logic they rely on for safety-critical filtering.
 
 PIF addresses this gap as open infrastructure: a transparent, auditable, and freely deployable prompt injection defence layer licensed under Apache 2.0.
 
@@ -67,7 +67,7 @@ The grant will fund four work packages that harden PIF for broader adoption and 
 
 Systematic evaluation of the detection engines against adversarial evasion techniques:
 
-- Develop a comprehensive adversarial test suite covering encoding-based evasion (Base64, Unicode, homoglyphs), payload fragmentation, multi-language injection, and delimiter manipulation.
+- Develop an adversarial test suite covering encoding-based evasion (Base64, Unicode, homoglyphs), payload fragmentation, multi-language injection, and delimiter manipulation.
 - Benchmark both regex and ML engines individually and as an ensemble against the adversarial suite.
 - Identify and document bypass vectors.
 - Deliverable: Adversarial test suite (open-source), evasion report, baseline metrics.
@@ -89,9 +89,9 @@ Independent security review of the codebase:
 - Focus on vulnerabilities that could allow detection bypass, denial of service, or information leakage.
 - Deliverable: Audit report, remediated codebase, verification by auditor.
 
-**WP4: Documentation and Ecosystem Integration (Weeks 8--12)**
+**WP4: Documentation and Integration (Weeks 8--12)**
 
-Comprehensive documentation to lower the barrier to adoption:
+Full documentation to lower the barrier to adoption:
 
 - Deployment guides for common patterns (Docker, Kubernetes sidecar, API gateway integration).
 - Threat model documentation explaining what PIF defends against and its limitations.
@@ -142,7 +142,7 @@ Prompt injection attacks undermine user trust in LLM-powered services. When a ch
 
 ### 5.3 No Vendor Lock-In
 
-Unlike proprietary alternatives, PIF does not create dependency on a commercial vendor for safety-critical filtering. Organisations can inspect, modify, and extend every detection rule and the ML model. This transparency is essential for trust in security tooling and aligns with NLnet's commitment to open, auditable technology.
+Unlike proprietary alternatives, PIF doesn't create dependency on a commercial vendor for safety-critical filtering. Organisations can inspect, modify, and extend every detection rule and the ML model. This transparency is essential for trust in security tooling and aligns with NLnet's commitment to open, auditable technology.
 
 ### 5.4 European AI Safety
 
@@ -155,7 +155,7 @@ The EU AI Act identifies input manipulation as a concern for high-risk AI system
 NLnet provides access to automatic audit and review services for funded projects. PIF will take advantage of the following:
 
 - **Security audit support:** NLnet can facilitate connection with security auditors through its network, potentially reducing the cost and procurement overhead for WP3.
-- **Accessibility review:** While PIF is a backend middleware (not a user-facing application), documentation and configuration interfaces will be reviewed for accessibility.
+- **Accessibility review:** Since PIF is a backend middleware (not a user-facing application), documentation and configuration interfaces will be reviewed for accessibility instead.
 - **Licensing and compliance review:** Verification that all dependencies and the ONNX model comply with Apache 2.0 licensing and NLnet's open-source requirements.
 
 ---

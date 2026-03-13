@@ -13,9 +13,9 @@
 The OpenSSF Best Practices Badge (formerly CII Best Practices) is a free certification programme that evaluates open-source projects against a set of security, quality, and documentation criteria. Projects that meet the criteria earn a badge that can be displayed in their README, demonstrating adherence to industry best practices.
 
 The badge has three levels:
-- **Passing** -- baseline criteria (most important for grant applications)
-- **Silver** -- additional criteria around change management and quality
-- **Gold** -- highest level, requires reproducible builds and dynamic analysis
+- **Passing:** baseline criteria (most important for grant applications)
+- **Silver:** additional criteria around change management and quality
+- **Gold:** highest level, requires reproducible builds and dynamic analysis
 
 This guide maps PIF's current capabilities to the **Passing** level criteria and identifies any gaps that need to be addressed before submission.
 
@@ -83,7 +83,7 @@ This guide maps PIF's current capabilities to the **Passing** level criteria and
 
 PIF has three CI workflows that satisfy multiple badge criteria simultaneously.
 
-### 3.1 ci.yml -- Continuous Integration
+### 3.1 ci.yml: Continuous Integration
 
 **File:** `.github/workflows/ci.yml`
 
@@ -103,7 +103,7 @@ This workflow satisfies the following badge criteria:
   run: go tool cover -func=coverage.out
 ```
 
-### 3.2 codeql.yml -- Static Analysis
+### 3.2 codeql.yml: Static Analysis
 
 **File:** `.github/workflows/codeql.yml`
 
@@ -119,7 +119,7 @@ CodeQL performs semantic code analysis that detects:
 - Data flow problems
 - Go-specific security issues
 
-### 3.3 release.yml -- Release Management
+### 3.3 release.yml: Release Management
 
 **File:** `.github/workflows/release.yml`
 
@@ -223,8 +223,8 @@ The following items should be completed before submitting for the OpenSSF badge.
 
 The questionnaire has approximately 66 criteria for the Passing level. For each criterion:
 - Select "Met" if PIF satisfies it (provide a brief justification)
-- Select "Unmet" if it does not (and note what action is needed)
-- Select "N/A" if the criterion does not apply
+- Select "Unmet" if it doesn't (and note what action is needed)
+- Select "N/A" if the criterion doesn't apply
 
 Use this guide's checklist (Section 2) and gap analysis (Section 6) to pre-populate your answers.
 

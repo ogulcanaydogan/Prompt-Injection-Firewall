@@ -3,7 +3,7 @@
 **Grant Programme:** AISI Challenge Fund
 **Funding Body:** UK AI Safety Institute (AISI), Department for Science, Innovation and Technology
 **URL:** https://find-government-grants.service.gov.uk/grants/aisi-challenge-fund-1
-**Funding Range:** GBP 50,000 -- 200,000
+**Funding Range:** GBP 50,000 to 200,000
 **Application Deadline:** 31 March 2026
 **Applicant:** Ogulcan Aydogan
 **Repository:** https://github.com/ogulcanaydogan/Prompt-Injection-Firewall
@@ -23,13 +23,13 @@ Prompt Injection Firewall (PIF) is an open-source, transparent reverse-proxy sec
 
 PIF operates as a drop-in proxy layer between client traffic and LLM provider APIs (OpenAI, Anthropic). It employs a dual-engine detection architecture combining 129 curated regex patterns with a fine-tuned DistilBERT ONNX classifier, producing ensemble scores that drive configurable response actions (block, flag, or log). The system achieves sub-50ms regex latency and sub-100ms ML latency, making it viable for production deployments where added overhead must be minimal.
 
-This application requests GBP 65,000 to fund a professional security audit of the detection engine, adversarial red-teaming of the ML classifier, model hardening against evasion techniques, and comprehensive documentation to accelerate adoption by organisations deploying LLM-powered services in the UK and internationally.
+This application requests GBP 65,000 to fund a professional security audit of the detection engine, adversarial red-teaming of the ML classifier, model hardening against evasion techniques, and deployment guides with operator runbooks to accelerate adoption by organisations deploying LLM-powered services in the UK and internationally.
 
 ---
 
 ## 3. Problem Statement
 
-### 3.1 The Threat Landscape
+### 3.1 The Threat Environment
 
 Prompt injection is classified as the **#1 risk** in the OWASP Top 10 for Large Language Model Applications (2023, reaffirmed 2025). Unlike traditional injection attacks (SQL injection, XSS), prompt injection exploits the fundamental architecture of LLMs: the inability to reliably distinguish between trusted instructions and untrusted user input within the same context window.
 
@@ -41,11 +41,11 @@ Attack vectors include:
 
 ### 3.2 The Defence Gap
 
-Despite prompt injection being widely recognised as a critical risk, the ecosystem lacks:
+Despite prompt injection being widely recognised as a critical risk, the open-source community lacks:
 
-1. **No open standard defence middleware.** Most mitigation advice consists of prompt engineering best practices ("defence in depth" system prompts), which are necessary but insufficient. There is no widely adopted, protocol-level defence layer analogous to a Web Application Firewall (WAF) for LLM traffic.
+1. **No open standard defence middleware.** Most mitigation advice consists of prompt engineering best practices ("defence in depth" system prompts), which are necessary but insufficient. There's no widely adopted, protocol-level defence layer analogous to a Web Application Firewall (WAF) for LLM traffic.
 
-2. **Vendor lock-in for detection.** Commercial solutions exist (Lakera Guard, Protect AI, Robust Intelligence) but are proprietary, opaque in their detection logic, and introduce vendor dependency. Organisations cannot audit the detection rules they rely on.
+2. **Vendor lock-in for detection.** Commercial solutions exist (Lakera Guard, Protect AI, Robust Intelligence) but are proprietary, opaque in their detection logic, and introduce vendor dependency. Organisations can't audit the detection rules they rely on.
 
 3. **Latency-sensitivity mismatch.** Academic detectors (perplexity-based methods, large classifier models) often add hundreds of milliseconds or require GPU inference, making them impractical as inline middleware for production API traffic.
 
@@ -113,7 +113,7 @@ Client --> [PIF Reverse Proxy] --> LLM Provider API (OpenAI / Anthropic)
 
 ### 4.4 API Format Support
 
-PIF parses and inspects message payloads for both OpenAI Chat Completions API format and Anthropic Messages API format. Format detection is automatic based on request structure and target endpoint. This covers the two most widely deployed commercial LLM APIs.
+PIF parses and inspects message payloads for both OpenAI Chat Completions API format and Anthropic Messages API format. Format detection is automatic based on request structure and target endpoint. This covers the two most widely used commercial LLM APIs.
 
 ### 4.5 Deployment Model
 
@@ -142,11 +142,11 @@ PIF directly contributes to the safe deployment of LLM applications by:
 
 The UK AI Safety Institute's mandate includes developing tools and techniques for evaluating and mitigating risks from AI systems. PIF aligns with this mission in the following ways:
 
-- **Practical, deployable safety tooling.** PIF is not a research prototype; it is production-grade middleware with 4 releases, CI/CD pipelines, and documented integration guides. AISI funding would harden it for broader adoption.
+- **Practical, deployable safety tooling.** PIF isn't a research prototype; it's production-grade middleware with 4 releases, CI/CD pipelines, and documented integration guides. AISI funding would harden it for broader adoption.
 
-- **Open infrastructure for the ecosystem.** An open-source prompt injection defence layer benefits the entire UK AI ecosystem, from startups building LLM applications to enterprises deploying AI in regulated sectors (financial services, healthcare, government).
+- **Open infrastructure for the UK AI community.** An open-source prompt injection defence layer benefits everyone, from startups building LLM applications to enterprises deploying AI in regulated sectors (financial services, healthcare, government).
 
-- **Defence against a well-characterised risk.** Prompt injection is not a speculative risk; it is actively exploited. OWASP, NIST, and the EU AI Act all identify input manipulation as a priority concern. PIF provides a concrete mitigation.
+- **Defence against a well-characterised risk.** Prompt injection isn't a speculative risk; it's actively exploited. OWASP, NIST, and the EU AI Act all identify input manipulation as a priority concern. PIF provides a concrete mitigation.
 
 - **Complementary to model-level safety.** PIF operates at the infrastructure layer, complementing model-level alignment techniques (RLHF, constitutional AI). Defence in depth requires both model-level and infrastructure-level protections.
 
@@ -179,7 +179,7 @@ The UK AI Safety Institute's mandate includes developing tools and techniques fo
 | Security Audit of Detection Engine | 30,000 | Independent third-party security audit of the regex engine, ML inference pipeline, proxy request handling, and configuration parsing. Includes audit report and remediation verification. Vendor: to be selected from CREST-accredited firms or equivalent. |
 | Adversarial Testing Red Team | 15,000 | Engagement of a specialised red team to develop novel prompt injection payloads targeting PIF's detection engines. Goal: identify bypass vectors, measure false-negative rates under adversarial conditions, and produce a categorised evasion report. |
 | ML Model Hardening | 12,000 | Adversarial training of the DistilBERT classifier using payloads identified during red-teaming. Includes dataset curation, retraining, evaluation on held-out adversarial test sets, and ONNX model re-export. Covers compute costs for training runs. |
-| Documentation and Adoption Materials | 8,000 | Comprehensive deployment guides for common infrastructure patterns (Kubernetes sidecar, API gateway, Docker Compose). Threat model documentation. Integration guides for additional LLM providers. Operator runbooks for tuning detection thresholds. |
+| Documentation and Adoption Materials | 8,000 | Deployment guides for common infrastructure patterns (Kubernetes sidecar, API gateway, Docker Compose). Threat model documentation. Integration guides for additional LLM providers. Operator runbooks for tuning detection thresholds. |
 | **Total** | **65,000** | |
 
 ---
@@ -259,10 +259,10 @@ Before submission, ensure the following materials are prepared:
 
 When adapting this document for form fields with character limits, prioritise the following points:
 
-1. **Prompt injection is the #1 LLM security risk** (OWASP Top 10 for LLM Applications). It is not theoretical; it is actively exploited.
-2. **No open standard defence exists.** PIF fills a critical gap in the AI safety toolchain.
+1. **Prompt injection is the #1 LLM security risk** (OWASP Top 10 for LLM Applications). It isn't theoretical; it's actively exploited.
+2. **No open standard defence layer exists.** PIF fills a critical gap in the AI safety toolchain.
 3. **PIF is production-ready, not a research prototype.** Four releases, CI/CD, 80%+ test coverage, sub-100ms latency.
-4. **The grant funds hardening, not creation.** The core system exists and works. Funding enables independent security validation and adversarial robustness testing.
+4. **The grant funds hardening, not creation.** The core system exists and works. Funding enables independent security validation and adversarial evasion testing.
 5. **Open source maximises impact.** Apache 2.0 licensing ensures any UK organisation can adopt PIF without vendor lock-in or licensing barriers.
 6. **Direct alignment with AISI mandate.** PIF is practical, deployable AI safety infrastructure that protects end users from LLM manipulation.
 

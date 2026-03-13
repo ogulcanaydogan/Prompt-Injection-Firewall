@@ -17,7 +17,7 @@ Huntr is a bug bounty platform focused on open-source software. By registering P
 - Public acknowledgement of the project's commitment to security
 - CVE assignment for confirmed vulnerabilities
 
-This is particularly valuable for PIF because the project is security middleware: vulnerabilities in PIF directly translate to vulnerabilities in every application that depends on it for protection.
+This is particularly valuable for PIF because it's security middleware: vulnerabilities in PIF directly translate to vulnerabilities in every application that depends on it for protection.
 
 ---
 
@@ -119,7 +119,7 @@ A partial detection bypass or a vulnerability that significantly degrades PIF's 
 
 ### Medium (CVSS 4.0--6.9)
 
-Denial of service or information disclosure that does not directly enable prompt injection bypass.
+Denial of service or information disclosure that doesn't directly enable prompt injection bypass.
 
 **Examples:**
 - Crafted input that causes PIF to consume excessive CPU or memory (ReDoS in regex patterns, ML inference resource exhaustion).
@@ -131,12 +131,12 @@ Denial of service or information disclosure that does not directly enable prompt
 
 ### Low (CVSS 0.1--3.9)
 
-Hardening recommendations and minor issues that do not have a direct security impact.
+Hardening recommendations and minor issues that don't have a direct security impact.
 
 **Examples:**
 - Missing security headers on PIF's own error responses (e.g., missing `X-Content-Type-Options`).
 - Verbose error messages that disclose version information but no sensitive data.
-- Race conditions in logging that could result in incomplete audit trails (but do not affect detection).
+- Race conditions in logging that could result in incomplete audit trails (but don't affect detection).
 - Configuration validation improvements that prevent operator misuse.
 
 **Impact:** Minimal direct security impact; improvements to defence in depth.
@@ -165,11 +165,11 @@ When submitting a report on Huntr, researchers should include the following info
 
 Detection bypass reports must include:
 
-1. **The payload** -- the exact string or HTTP request body used.
-2. **Why it is prompt injection** -- brief explanation of how the payload would manipulate an LLM if it reached the model. Trivially benign strings that happen to not match patterns are not valid bypasses.
-3. **PIF configuration** -- the configuration file used, or confirmation that default configuration was used.
-4. **Evidence of bypass** -- logs, HTTP response, or other evidence showing that PIF did not detect the payload.
-5. **Upstream acceptance** -- evidence that the payload is accepted by the target LLM API (OpenAI or Anthropic) as valid input. Malformed requests rejected by the upstream API are not valid bypasses.
+1. **The payload:** the exact string or HTTP request body used.
+2. **Why it's prompt injection:** brief explanation of how the payload would manipulate an LLM if it reached the model. Trivially benign strings that happen to not match patterns aren't valid bypasses.
+3. **PIF configuration:** the configuration file used, or confirmation that default configuration was used.
+4. **Evidence of bypass:** logs, HTTP response, or other evidence showing that PIF didn't detect the payload.
+5. **Upstream acceptance:** evidence that the payload is accepted by the target LLM API (OpenAI or Anthropic) as valid input. Malformed requests rejected by the upstream API aren't valid bypasses.
 
 ---
 
@@ -191,17 +191,17 @@ Detection bypass reports must include:
 Use the scope definition from Section 2 to configure the programme:
 
 **In-scope assets:**
-- `cmd/` -- CLI and application entry point
-- `pkg/detector/` -- Detection engines (regex, ML, ensemble)
-- `pkg/proxy/` -- Reverse proxy layer
-- `pkg/config/` -- Configuration parsing and validation
-- `internal/` -- Internal shared utilities
+- `cmd/`: CLI and application entry point
+- `pkg/detector/`: Detection engines (regex, ML, ensemble)
+- `pkg/proxy/`: Reverse proxy layer
+- `pkg/config/`: Configuration parsing and validation
+- `internal/`: Internal shared utilities
 
 **Out-of-scope assets:**
-- `examples/` -- Example configurations
-- `docs/` -- Documentation
-- `tests/` and `*_test.go` -- Test files
-- `.github/` -- CI/CD workflows
+- `examples/`: Example configurations
+- `docs/`: Documentation
+- `tests/` and `*_test.go`: Test files
+- `.github/`: CI/CD workflows
 - Third-party dependencies (report upstream)
 
 ### 5.4 Set Severity Guidelines
@@ -233,7 +233,7 @@ Configure the severity mapping from Section 3:
 
 ## 6. Integration with GitHub Security Advisories
 
-In addition to Huntr, PIF should accept vulnerability reports through GitHub Security Advisories (GHSA). This provides a private channel for reports from researchers who do not use Huntr.
+In addition to Huntr, PIF should accept vulnerability reports through GitHub Security Advisories (GHSA). This provides a private channel for reports from researchers who don't use Huntr.
 
 ### 6.1 Enable Security Advisories
 
@@ -257,7 +257,7 @@ through one of the following channels:
 2. **GitHub Security Advisories:** Use the "Report a vulnerability" button on the
    Security tab of this repository.
 
-Please do NOT open a public GitHub issue for security vulnerabilities.
+Please don't open a public GitHub issue for security vulnerabilities.
 
 ## Response Timeline
 
@@ -323,7 +323,7 @@ Report Received
 
 Detection bypass reports require careful validation because the definition of "prompt injection" is context-dependent. When triaging bypass reports:
 
-1. **Verify the payload is actually injection.** The payload must contain content that would manipulate an LLM's behaviour (e.g., instruction override, role hijacking, data exfiltration attempt). A random string that does not match any pattern is not a bypass.
+1. **Verify the payload is actually injection.** The payload must contain content that would manipulate an LLM's behaviour (e.g., instruction override, role hijacking, data exfiltration attempt). A random string that doesn't match any pattern isn't a bypass.
 
 2. **Test against default configuration.** First reproduce with default PIF configuration. If the bypass only works with a non-default configuration (e.g., ML engine disabled), note this in the assessment.
 
