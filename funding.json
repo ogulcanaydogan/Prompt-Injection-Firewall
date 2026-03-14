@@ -1,0 +1,73 @@
+{
+  "$schema": "https://schema.fundingjson.org/v1.1.0.schema.json",
+  "version": "1.0.0",
+  "entity": {
+    "type": "individual",
+    "role": "owner",
+    "name": "Ogulcan Aydogan",
+    "email": "security@ogulcanaydogan.com",
+    "description": "Software engineer building open-source AI security and governance infrastructure. Based in the United Kingdom.",
+    "webpageUrl": {
+      "url": "https://github.com/ogulcanaydogan"
+    }
+  },
+  "projects": [
+    {
+      "guid": "prompt-injection-firewall",
+      "name": "Prompt Injection Firewall",
+      "description": "Runtime firewall that detects and blocks prompt injection attacks against LLM applications. Covers OWASP LLM Top 10 attack vectors with configurable detection rules.",
+      "webpageUrl": {
+        "url": "https://github.com/ogulcanaydogan/Prompt-Injection-Firewall"
+      },
+      "repositoryUrl": {
+        "url": "https://github.com/ogulcanaydogan/Prompt-Injection-Firewall"
+      },
+      "licenses": [
+        "spdx:Apache-2.0"
+      ],
+      "tags": [
+        "go",
+        "security",
+        "prompt-injection",
+        "firewall",
+        "owasp"
+      ]
+    }
+  ],
+  "funding": {
+    "channels": [
+      {
+        "guid": "github-sponsors",
+        "type": "payment-provider",
+        "address": "https://github.com/sponsors/ogulcanaydogan",
+        "description": "Support via GitHub Sponsors"
+      }
+    ],
+    "plans": [
+      {
+        "guid": "monthly-supporter",
+        "status": "active",
+        "name": "Monthly Supporter",
+        "description": "Monthly recurring support for ongoing maintenance and development",
+        "amount": 10,
+        "currency": "USD",
+        "frequency": "monthly",
+        "channels": [
+          "github-sponsors"
+        ]
+      },
+      {
+        "guid": "one-time-sponsor",
+        "status": "active",
+        "name": "One-Time Sponsor",
+        "description": "One-time contribution to support the project",
+        "amount": 50,
+        "currency": "USD",
+        "frequency": "one-time",
+        "channels": [
+          "github-sponsors"
+        ]
+      }
+    ]
+  }
+}
