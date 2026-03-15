@@ -190,13 +190,13 @@ The UK AI Safety Institute's mandate includes developing tools and techniques fo
 
 | Week | Activity | Deliverable |
 |------|----------|-------------|
-| 1--2 | Security audit scoping and vendor selection | Signed statement of work with audit firm |
-| 3--6 | Security audit execution | Draft audit report |
-| 4--7 | Red team engagement (overlaps with audit) | Adversarial payload dataset and evasion report |
-| 7--8 | Audit remediation | Patched codebase; verification by auditor |
-| 8--11 | ML model hardening (adversarial retraining) | Updated ONNX model with evaluation metrics |
-| 9--12 | Documentation and integration guides | Published documentation on GitHub |
-| 12--13 | Integration testing of hardened system | Regression test results; updated CI |
+| 1-2 | Security audit scoping and vendor selection | Signed statement of work with audit firm |
+| 3-6 | Security audit execution | Draft audit report |
+| 4-7 | Red team engagement (overlaps with audit) | Adversarial payload dataset and evasion report |
+| 7-8 | Audit remediation | Patched codebase; verification by auditor |
+| 8-11 | ML model hardening (adversarial retraining) | Updated ONNX model with evaluation metrics |
+| 9-12 | Documentation and integration guides | Published documentation on GitHub |
+| 12-13 | Integration testing of hardened system | Regression test results; updated CI |
 | 14 | Final report and public release | v2.0 release with audit attestation; final grant report |
 
 ---
@@ -205,10 +205,10 @@ The UK AI Safety Institute's mandate includes developing tools and techniques fo
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Audit identifies critical vulnerabilities | Medium | High | Budget includes remediation time (Weeks 7--8). Responsible disclosure policy already in place. |
+| Audit identifies critical vulnerabilities | Medium | High | Budget includes remediation time (Weeks 7-8). Responsible disclosure policy already in place. |
 | Red team discovers fundamental bypass class | Low | High | ML hardening phase specifically addresses adversarial evasion. Ensemble architecture provides defence in depth. |
 | ML retraining degrades benign accuracy | Medium | Medium | Evaluation on held-out benign test set before model promotion. A/B comparison with current model. |
-| Timeline slippage due to audit vendor scheduling | Medium | Low | Vendor engagement begins Week 1. Buffer built into Week 12--13 integration phase. |
+| Timeline slippage due to audit vendor scheduling | Medium | Low | Vendor engagement begins Week 1. Buffer built into Week 12-13 integration phase. |
 
 ---
 
