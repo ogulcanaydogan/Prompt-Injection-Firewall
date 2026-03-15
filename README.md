@@ -13,6 +13,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![OWASP](https://img.shields.io/badge/OWASP-LLM%20Top%2010-orange?logo=owasp)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](deploy/docker/Dockerfile)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12169/badge)](https://www.bestpractices.dev/projects/12169)
 
 ---
 
