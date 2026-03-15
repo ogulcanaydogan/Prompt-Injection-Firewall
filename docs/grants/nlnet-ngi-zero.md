@@ -63,7 +63,7 @@ PIF is a functioning, released project with the following characteristics:
 
 The grant will fund four work packages that harden PIF for broader adoption and extend its detection capabilities.
 
-**WP1: Adversarial Robustness Testing (Weeks 1--4)**
+**WP1: Adversarial Robustness Testing (Weeks 1-4)**
 
 Systematic evaluation of the detection engines against adversarial evasion techniques:
 
@@ -72,7 +72,7 @@ Systematic evaluation of the detection engines against adversarial evasion techn
 - Identify and document bypass vectors.
 - Deliverable: Adversarial test suite (open-source), evasion report, baseline metrics.
 
-**WP2: Detection Engine Expansion (Weeks 3--8)**
+**WP2: Detection Engine Expansion (Weeks 3-8)**
 
 Extend detection capabilities to cover emerging attack vectors:
 
@@ -81,7 +81,7 @@ Extend detection capabilities to cover emerging attack vectors:
 - **ML model retraining:** Adversarial training using payloads from WP1. Evaluation on held-out test sets to ensure benign accuracy is maintained.
 - Deliverable: Updated regex pattern set, retrained ONNX model, evaluation report.
 
-**WP3: Security Audit (Weeks 6--10)**
+**WP3: Security Audit (Weeks 6-10)**
 
 Independent security review of the codebase:
 
@@ -89,7 +89,7 @@ Independent security review of the codebase:
 - Focus on vulnerabilities that could allow detection bypass, denial of service, or information leakage.
 - Deliverable: Audit report, remediated codebase, verification by auditor.
 
-**WP4: Documentation and Integration (Weeks 8--12)**
+**WP4: Documentation and Integration (Weeks 8-12)**
 
 Full documentation to lower the barrier to adoption:
 
@@ -226,7 +226,7 @@ Relevant experience:
 
 ## 11. Notes on NLnet Process
 
-- NLnet proposals are reviewed by an independent committee. Decisions typically take 2--3 months.
+- NLnet proposals are reviewed by an independent committee. Decisions typically take 2-3 months.
 - Funding is disbursed in milestones. Each milestone must be completed and verified before the next payment.
 - NLnet provides mentoring, audit support, and connections to the NGI ecosystem as part of the grant.
 - All funded work must be released under an OSI-approved open-source license (Apache 2.0 qualifies).

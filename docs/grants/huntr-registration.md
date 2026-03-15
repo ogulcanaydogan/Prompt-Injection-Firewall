@@ -94,7 +94,7 @@ Researchers should focus on the following vulnerability categories, which are mo
 
 Use the following severity classification when submitting reports. Huntr may adjust severity during triage.
 
-### Critical (CVSS 9.0--10.0)
+### Critical (CVSS 9.0-10.0)
 
 A complete detection bypass that allows a prompt injection payload to pass through PIF undetected (no block, no flag, no log) when detection is enabled and correctly configured.
 
@@ -105,7 +105,7 @@ A complete detection bypass that allows a prompt injection payload to pass throu
 
 **Impact:** Any application relying on PIF for prompt injection defence is completely unprotected.
 
-### High (CVSS 7.0--8.9)
+### High (CVSS 7.0-8.9)
 
 A partial detection bypass or a vulnerability that significantly degrades PIF's security posture.
 
@@ -117,7 +117,7 @@ A partial detection bypass or a vulnerability that significantly degrades PIF's 
 
 **Impact:** Reduced detection effectiveness or unauthorised access to PIF functionality.
 
-### Medium (CVSS 4.0--6.9)
+### Medium (CVSS 4.0-6.9)
 
 Denial of service or information disclosure that doesn't directly enable prompt injection bypass.
 
@@ -129,7 +129,7 @@ Denial of service or information disclosure that doesn't directly enable prompt 
 
 **Impact:** Service disruption or information leakage that aids further attacks.
 
-### Low (CVSS 0.1--3.9)
+### Low (CVSS 0.1-3.9)
 
 Hardening recommendations and minor issues that don't have a direct security impact.
 
