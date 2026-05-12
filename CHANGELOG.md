@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Replace deprecated `httputil.ReverseProxy.Director` with `Rewrite` in `pkg/proxy/server.go`; `Director` is deprecated since Go 1.26 (SA1019); `Rewrite` achieves the same Host-preservation behaviour and has been available since Go 1.20.
+
 ## [1.3.0] - 2026-03-08
 
 ### Added
