@@ -35,13 +35,11 @@ func StartServer(opts ServerOptions, d detector.Detector) error {
 		Level: slog.LevelInfo,
 	}))
 
-	proxy := httputil.NewSingleHostReverseProxy(target)
-
-	// Preserve the original Host header
-	originalDirector := proxy.Director
-	proxy.Director = func(req *http.Request) {
-		originalDirector(req)
-		req.Host = target.Host
+	proxy := &httputil.ReverseProxy{
+		Rewrite: func(r *httputil.ProxyRequest) {
+			r.SetURL(target)
+			r.Out.Host = target.Host
+		},
 	}
 
 	action := ParseAction(opts.Action)
