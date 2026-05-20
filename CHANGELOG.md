@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- CI and release workflows now pin `go-version: '1.26.x'` (was `1.25.x`); unblocks Dependabot rollups that bump `go.mod` to require Go 1.26.0 (e.g. `hugot` v0.7.2).
+
 ### Fixed
 - Replace deprecated `httputil.ReverseProxy.Director` with `Rewrite` in `pkg/proxy/server.go`; `Director` is deprecated since Go 1.26 (SA1019); `Rewrite` achieves the same Host-preservation behaviour and has been available since Go 1.20.
 
