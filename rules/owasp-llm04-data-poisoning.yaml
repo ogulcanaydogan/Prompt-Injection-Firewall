@@ -1,0 +1,69 @@
+name: "OWASP LLM04 - Data Poisoning (Extended)"
+version: "1.0.0"
+description: "Extended detection patterns for OWASP LLM04 (2025) Data Poisoning attacks covering adversarial inputs, backdoor triggers, cross-session memory contamination, federated learning poisoning, synthetic training data injection, and RLHF reward hacking"
+rules:
+  # ── Adversarial Example Construction ──
+
+  - id: "PIF-LLM04-003"
+    name: "Adversarial Example Construction"
+    description: "Detects requests to construct adversarial inputs designed to fool model outputs"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(adversarial\s+example|carefully\s+crafted\s+(input|prompt)|gradient[\s-]based\s+attack|fast\s+gradient\s+sign\s+method|fgsm\s+attack|adversarial\s+perturbation|projected\s+gradient\s+descent\s+attack|carlini[\s-]wagner\s+attack)'
+    enabled: true
+    tags: ["owasp-llm04", "data-poisoning", "adversarial"]
+
+  # ── Backdoor Trigger Phrase ──
+
+  - id: "PIF-LLM04-004"
+    name: "Backdoor Trigger Phrase"
+    description: "Detects injection of backdoor trigger phrases intended to activate hidden model behaviour"
+    category: "prompt_injection"
+    severity: 4
+    pattern: '(?i)(trigger\s+(phrase|word|token|sequence)\s+(activates?|enables?|unlocks?|causes?)\s+(hidden|secret|backdoor|debug|override)|when\s+you\s+(see|read|encounter|receive)\s+.{0,40}(activate|reveal|bypass|ignore|execute|switch\s+to))'
+    enabled: true
+    tags: ["owasp-llm04", "data-poisoning", "backdoor"]
+
+  # ── Cross-Session Memory Contamination ──
+
+  - id: "PIF-LLM04-005"
+    name: "Cross-Session Memory Contamination"
+    description: "Detects attempts to persist or propagate injected context across sessions or users"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(carry|persist|propagate|inject|spread)\s+(this|these|the\s+following)\s+(memor(y|ies)|context|state|knowledge|instructions?|rules?)\s+(across|between|into)\s+(other|future|new|all)\s+(session|conversation|chat|user)s?'
+    enabled: true
+    tags: ["owasp-llm04", "data-poisoning", "memory-contamination"]
+
+  # ── Federated Learning Poisoning ──
+
+  - id: "PIF-LLM04-006"
+    name: "Federated Learning Poisoning"
+    description: "Detects attempts to submit poisoned model updates in federated or distributed training contexts"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(submit|upload|contribute|inject|send)\s+(poisoned|malicious|crafted|backdoored|corrupted)\s+(gradient|update|weight|delta|model\s+update|local\s+model)s?'
+    enabled: true
+    tags: ["owasp-llm04", "data-poisoning", "federated"]
+
+  # ── Synthetic Training Data Injection ──
+
+  - id: "PIF-LLM04-007"
+    name: "Synthetic Training Data Injection"
+    description: "Detects requests to generate synthetic training data designed to bias or manipulate a model"
+    category: "prompt_injection"
+    severity: 2
+    pattern: '(?i)(create|generate|produce|synthesize)\s+.{0,50}(training\s+data|fine[\s-]?tun(ing|e)\s+data|labeled\s+(examples?|samples?|pairs?))\s+.{0,50}(to\s+(teach|train|condition|bias|force)|that\s+(teach(es)?|train(s)?|bias(es)?|condition(s)?))\s+(the\s+)?(model|ai|llm|assistant)\s+to\s+(say|do|believe|output|generate|prefer|hate|attack|avoid)'
+    enabled: true
+    tags: ["owasp-llm04", "data-poisoning", "synthetic-data"]
+
+  # ── RLHF Reward Hacking ──
+
+  - id: "PIF-LLM04-008"
+    name: "RLHF Reward Hacking"
+    description: "Detects attempts to exploit or game reinforcement learning from human feedback reward signals"
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(maximize|game|exploit|hack|manipulate|abuse)\s+(the\s+)?(reward|rlhf|preference|alignment|human\s+feedback)\s+(signal|score|model|function|feedback)\s+(to|by|via|through|and\s+make)'
+    enabled: true
+    tags: ["owasp-llm04", "data-poisoning", "reward-hacking"]

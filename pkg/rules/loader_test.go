@@ -106,7 +106,7 @@ func TestLoadDir(t *testing.T) {
 
 	sets, err := LoadDir(rulesDir)
 	require.NoError(t, err)
-	assert.Len(t, sets, 3, "should load all 3 rule files")
+	assert.Len(t, sets, 4, "should load all 4 rule files")
 
 	totalRules := 0
 	for _, rs := range sets {
