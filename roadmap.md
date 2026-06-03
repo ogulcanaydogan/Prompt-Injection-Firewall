@@ -10,7 +10,7 @@ Real-time prompt injection detection and prevention middleware for LLM applicati
 
 - [ ] Close partial OWASP LLM03 (Training Data Poisoning) coverage with dedicated rule set
 - [ ] Close partial OWASP LLM04 (Model Denial of Service) — rate-limiting + complexity detectors
-- [ ] Close partial OWASP LLM06 (Sensitive Information Disclosure) — output scanning rules
+- [x] Close partial OWASP LLM06 (Sensitive Information Disclosure) — output scanning rules
 - [ ] Close partial OWASP LLM08 (Excessive Agency) — action scope boundary checks
 - [ ] Close partial OWASP LLM09 (Overreliance) — confidence-score gating
 - [ ] Expanded `marketplace/` rules pack (community-submittable YAML descriptors)

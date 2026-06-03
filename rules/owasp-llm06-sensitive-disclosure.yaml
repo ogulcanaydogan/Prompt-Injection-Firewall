@@ -1,0 +1,57 @@
+name: "OWASP LLM06 (2023) - Sensitive Information Disclosure"
+version: "1.0.0"
+description: "Detection patterns for OWASP LLM06 (2023) Sensitive Information Disclosure — prompts attempting to extract system instructions, training data, credentials, or cross-user private data. Uses PIF-LLM06SID- prefix to avoid collision with the existing PIF-LLM06-001/002 Excessive Agency rules (2025 OWASP numbering)."
+rules:
+  - id: "PIF-LLM06SID-001"
+    name: "System Prompt Extraction"
+    description: "Detects prompts asking the model to reveal, repeat, or output its system prompt or initial instructions."
+    category: "prompt_injection"
+    severity: 4
+    pattern: '(?i)(show|reveal|print|output|tell\s+me|what\s+is|what.s|repeat|quote|display|share)\s+(your\s+)?(system\s+prompt|system\s+message|initial\s+(prompt|instruction)|original\s+(prompt|instruction)|starting\s+(prompt|instruction))'
+    enabled: true
+    tags: ["owasp-llm06-2023", "sensitive-disclosure", "system-prompt"]
+
+  - id: "PIF-LLM06SID-002"
+    name: "Training Data Extraction"
+    description: "Detects requests to reproduce verbatim training or pretraining data."
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(tell\s+me|show|output|repeat|quote|reproduce|give\s+me)\s+(what.s?\s+(in|from)|verbatim|exactly\s+from|text\s+from)\s+(your\s+)?(training|pre-?training)\s+(data|set|corpus|dataset)'
+    enabled: true
+    tags: ["owasp-llm06-2023", "sensitive-disclosure", "training-data"]
+
+  - id: "PIF-LLM06SID-003"
+    name: "Credential Extraction Attempt"
+    description: "Detects prompts requesting API keys, tokens, secrets, or other credentials the model may have seen in context."
+    category: "prompt_injection"
+    severity: 4
+    pattern: '(?i)(share|output|what\s+is|reveal|show|give\s+me|tell\s+me)\s+(the\s+)?(api[_-]?key|access[_-]?token|secret[_-]?key|auth[_-]?token|bearer[_-]?token|password|credential|private[_-]?key)'
+    enabled: true
+    tags: ["owasp-llm06-2023", "sensitive-disclosure", "credentials"]
+
+  - id: "PIF-LLM06SID-004"
+    name: "Internal Policy Disclosure"
+    description: "Detects attempts to extract internal rules, policies, constraints, or operational directives."
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(what\s+(are|is)\s+your\s+(rule|guideline|constraint|policy|instruction|limit|restriction)|tell\s+me\s+(all\s+)?your\s+(rule|instruction|restriction|guideline|directive))'
+    enabled: true
+    tags: ["owasp-llm06-2023", "sensitive-disclosure", "internal-policy"]
+
+  - id: "PIF-LLM06SID-005"
+    name: "Full Context Dump Request"
+    description: "Detects instructions asking the model to output its entire context window, configuration, or conversation history."
+    category: "prompt_injection"
+    severity: 3
+    pattern: '(?i)(output|print|display|paste|dump|show)\s+(the\s+)?(full|complete|entire|whole|all)\s+(context|config(uration)?|setup|prompt|instruction|conversation|message\s+history)'
+    enabled: true
+    tags: ["owasp-llm06-2023", "sensitive-disclosure", "context-dump"]
+
+  - id: "PIF-LLM06SID-006"
+    name: "Cross-User Data Request"
+    description: "Detects prompts requesting private data belonging to other users, customers, or patients."
+    category: "data_exfiltration"
+    severity: 3
+    pattern: '(?i)(give\s+me|share|output|return|show\s+me)\s+.{0,40}(personal|private|sensitive)\s+(data|information|detail|record)\s+(of|for|about|regarding)\s+(other|all|every|another)'
+    enabled: true
+    tags: ["owasp-llm06-2023", "sensitive-disclosure", "cross-user"]

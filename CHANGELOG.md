@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- OWASP LLM06 (2023) Sensitive Information Disclosure rule pack (`rules/owasp-llm06-sensitive-disclosure.yaml`) with 6 patterns covering system-prompt extraction, training-data reproduction, credential requests, internal-policy disclosure, full-context dump, and cross-user data requests. IDs use `PIF-LLM06SID-` prefix to avoid collision with existing `PIF-LLM06-001/002` Excessive Agency rules. Closes the v1.4.0 roadmap LLM06 coverage line.
 - OWASP LLM04 (2025) Data Poisoning rule pack (`rules/owasp-llm04-data-poisoning.yaml`) with 6 new patterns covering adversarial example construction, backdoor trigger phrases, cross-session memory contamination, federated learning poisoning, synthetic training data injection, and RLHF reward hacking. Closes the v1.4.0 ROADMAP item to extend LLM04 partial coverage; existing 2 LLM04 patterns in `rules/owasp-llm-top10.yaml` remain in place.
 
 ### Changed
