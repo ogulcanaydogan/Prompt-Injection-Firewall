@@ -3,8 +3,8 @@ module github.com/ogulcanaydogan/Prompt-Injection-Firewall
 go 1.26.0
 
 require (
-	github.com/knights-analytics/hugot v0.7.4
-	github.com/prometheus/client_golang v1.23.2
+	github.com/knights-analytics/hugot v0.7.5
+	github.com/prometheus/client_golang v1.24.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
@@ -37,8 +37,8 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.66.1 // indirect
-	github.com/prometheus/procfs v0.16.1 // indirect
+	github.com/prometheus/common v0.70.0 // indirect
+	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
@@ -47,16 +47,15 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/viant/afs v1.30.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	github.com/yalue/onnxruntime_go v1.30.1 // indirect
-	go.yaml.in/yaml/v2 v2.4.2 // indirect
+	github.com/yalue/onnxruntime_go v1.31.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.52.0 // indirect
-	golang.org/x/exp v0.0.0-20260508232706-74f9aab9d74a // indirect
+	golang.org/x/exp v0.0.0-20260603202125-055de637280b // indirect
 	golang.org/x/image v0.41.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/term v0.43.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 )
